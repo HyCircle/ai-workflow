@@ -2,7 +2,7 @@
 # workflow-kit/install.sh — 把工作流机制装进一个目标项目。
 # 用法: /path/to/workflow-kit/install.sh [目标项目根,默认当前目录]
 # 装什么:.claude/{skills,hooks,settings.json,workflow.env.example} + scripts/workflow/*.{py,sh}
-#         + 首次 seed decisions/0000-template.md、docs/workflow.md(已存在则不覆盖)。
+#         + 首次 seed AGENTS.md(+CLAUDE.md 软链)、decisions/0000-template.md、docs/workflow.md(已存在则不覆盖)。
 set -euo pipefail
 KIT="$(cd "$(dirname "$0")" && pwd)"
 DEST="${1:-$(pwd)}"
@@ -22,6 +22,8 @@ else
 fi
 
 # 文档系统 seed:仅当缺失时补,不覆盖既有
+[ -f "$DEST/AGENTS.md" ]                  || cp "$KIT/seed/AGENTS.md" "$DEST/AGENTS.md"
+[ -e "$DEST/CLAUDE.md" ]                  || ln -s AGENTS.md "$DEST/CLAUDE.md" 2>/dev/null || echo "⚠ 未能建 CLAUDE.md 软链(Windows?)——请手动让 CLAUDE.md 指向 AGENTS.md"
 [ -f "$DEST/decisions/0000-template.md" ] || { mkdir -p "$DEST/decisions"; cp "$KIT/seed/decisions/0000-template.md" "$DEST/decisions/"; }
 [ -f "$DEST/docs/workflow.md" ]           || { mkdir -p "$DEST/docs";      cp "$KIT/seed/docs/workflow.md" "$DEST/docs/"; }
 
@@ -29,6 +31,7 @@ cat <<EOF
 ✓ 已装入 $DEST
 下一步:
   1) cd "$DEST" && cp .claude/workflow.env.example .claude/workflow.env   # 填模型/命令档
+     并在 AGENTS.md「项目工具约定」填本项目技术栈
   2) 确认目标 .gitignore 忽略 .claude/ 与 scripts/workflow/(它们是本机安装副本)
   3) 重启 Claude Code —— 首次会提示信任新 hooks,批准即生效
 EOF

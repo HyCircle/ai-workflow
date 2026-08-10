@@ -10,16 +10,20 @@ description: 启动 Planner 角色。从冻结的 ADR 切工单(WO-<ADR>-<序号
 命令 / 模型档位一律读 `.claude/workflow.env`(`WF_TEST_CMD` / `WF_WORKER_MODEL` / `WF_REVIEW_MODEL` / `WF_REVIEW_MODEL_STRONG`),别在本页写死型号。
 
 ## 开工先读(冷启动就这些)
-`AGENTS.md`(§0 五条纪律 + 文档地图)→ `TODO.md`(下一步)→ 要动那批的 **ADR**(`decisions/NNNN-*.md`)+ `architecture.md` 相关节 → **读代码实况**(grep/read 核实 file:line)。别通读所有 ADR,按 TODO/需求只读相关的。
+`AGENTS.md`(§0 六条纪律 + 文档地图)→ `TODO.md`(下一步)→ 要动那批的 **ADR**(`decisions/NNNN-*.md`)+ `architecture.md` 相关节 → **读代码实况**(grep/read 核实 file:line)。别通读所有 ADR,按 TODO/需求只读相关的。
 
 ## 出工单 ≠ 照抄 ADR——你对「ADR → 代码」的 HOW 完整性负责
-ADR 用**两海拔**写:**意图**(散文,为什么/边界)+ **决策契约**(可测:数据形状/不变量/不做/判据)。**ADR 契约是冻结的 WHAT**(不擅自推翻),但 **HOW 的完整性是你的活**:WO 的判据、陷阱、边界是你写的,ADR 没替你想周全的漏进 WO 就是 planner 的锅。派单前对每张 WO 自审:
+ADR 给**意图**(为什么/边界)+ **决策**(不变量 / 边界 / 不做,可配伪代码)。**ADR 冻的是决策**(不擅自推翻),但 **HOW + 真代码是你的活**:WO 的判据、陷阱、边界你写,ADR 没替你想周全的漏进 WO 就是 planner 的锅。派单前对每张 WO 自审:
 - **有全量数据时别凭记忆造分类器/枚举/前缀/阈值**。手边有离线表就从数据反推,判据配一个**跑全集的恒真探针**(断言对全集无漏),别抽样几例(§0④:代码+数据是 SSOT)。
 - **主动找 ADR 没想到的失效模式/边界**,补进 WO「陷阱预判」或判据——像红队审自己的 WO。
 - **判据要能证伪**:尽量写成「bug 在时会红」的测试,而非「跑通即可」。
 
-### 代码实据型 ADR:骨架先行,再回填契约
-若要动的 ADR 是 `proposed`(bs 只写了意图 + 能证伪的子契约,其余标「待回填」)——**判据同 bs**:一条契约要靠**尚不存在的**代码/消费者/数据才能证伪 = 代码实据型,别硬冻。此时:先切一张**骨架 WO** 把那段代码/fixture 建出来(揭示真形状),你再**读码起草「决策(契约)」段回填**,过一道 ADR 红队(`cat .claude/skills/bs/redteam-adr.md <ADR> | codex exec -s read-only -m <模型名，去后端前缀>`),翻 `accepted`,**再**切实现工单。别在契约未定时就派完整 HOW。
+### 实现中长出的长期决定:就地冻结(自带单轮红队)
+某长期决定要动手试过才有把握 → 先当普通 WO 去实现。等它稳下来,**就在这儿冻**(别攒到收尾):补进 / 著作 ADR → 过一道单轮红队 → 用户扫一眼意图 → 翻 `accepted`。
+```bash
+cat .claude/skills/bs/redteam-adr.md <ADR 文件> | codex exec -s read-only -m <验收档模型，去后端前缀，如 deepseek-v4-flash>
+```
+**单轮**:审一次,只对致命 / 高问题动契约(尤其测试抓不到的范围、语义、超意图断言),其余记下就冻。此刻你上下文最热、最便宜,也和 session 收尾解耦。还没把握的部分先别冻,标着,等它真稳那一轮。
 
 ### 顺序你做主,遇冲突提案
 - **冻结的是契约**(数据形状/硬上限/不做);**不冻结的是进攻顺序**——先做哪张单、怎么切是你的判断,按当前实况排。
@@ -65,7 +69,7 @@ $WF_PY scripts/workflow/check_docs.py --changed  # 只看本轮改动(验收用)
 ```
 
 ## 施工纪律
-- **派单前先建不可变基线(否则 worker diff 无法隔离)**:派单前**先 commit 或 `git stash create` 把当前工作树固定下来**——尤其 greenfield,别在「一堆未提交的 setup 改动」之上派单,否则 worker 的 diff 会混进 setup、验收员只能靠 mtime 猜谁改了什么(dogfood 已踩)。验收对着这个固定 revision 跑(防验收后代码又变,验的不是同一份)。
+- **派单前先建不可变基线(否则 worker diff 无法隔离)**:派单前**先 commit 或 `git stash create` 把当前工作树固定下来**——尤其 greenfield,别在「一堆未提交的 setup 改动」之上派单,否则 worker 的 diff 会混进 setup、验收员只能靠 mtime 猜谁改了什么。验收对着这个固定 revision 跑(防验收后代码又变,验的不是同一份)。
 - **自举纪律**:改 `run_worker.sh` 等**正在被调用的脚本**必须**从副本跑**(`cp scripts/workflow/run_worker.sh scratchpad/PL-<id>/rw.snap.sh && bash scratchpad/PL-<id>/rw.snap.sh …`)或 planner 自己改——直接用它派会在途改文件、bash 偏移崩。
 - **风险自适应验收**:琐碎/小 → 只机器轨(`$WF_TEST_CMD` + `check_docs --changed` + 越界);高危/碰契约/热路径/新写入面 → 机器轨 + **异构设计审**;**未知风险默认升级设计审**。
 - **验收员 ≠ worker 的模型家族**(§2.5;这里「厂」指**模型家族/先验**,不是 `cursor/`·`codex/` 派单后端——后端只是 CLI):默认验收 `$WF_REVIEW_MODEL`(与 worker 不同家族);**高危/复杂 → 双验收**(第4参 `$WF_REVIEW_MODEL_STRONG`,尤其不能与 worker 同家族);连续多次全 GO 也可轮换换先验。
@@ -81,7 +85,7 @@ $WF_PY scripts/workflow/check_docs.py --changed  # 只看本轮改动(验收用)
 - **planner 自己写**:要设计/判断、上下文重、无测试判据的活(ADR 契约、提示词/skill)——派给冷启动 worker 会丢上下文、推倒重写。
 
 ## 收尾与文档维护:交给 /finishing + /cleaning
-- **著作(Claude,`/finishing`)**:session 结束时冻结**当轮已稳定的决策**成 ADR(整块两海拔,含意图)+ 转写会话 + 出续命总结。
+- **收尾(Claude,`/finishing`)**:出收尾总结 + 交棒(含本轮未冻决定的候选)+ 转写会话。**决定的冻结不在这儿**——在成熟当下就地冻(见上)。
 - **维护/清理(Cursor,`/cleaning`)**:维护 `architecture.md`(提 diff 人审)+ 排空 `TODO.md` + 归档 scratch + 死链核查——fresh agent 读 transcript + 读仓做,人在 IDE 审 diff。
 - **别抢维护活**:GO 之后你只放行 commit;`architecture`/`TODO`/`decisions` 的搬迁维护留给 `/cleaning` / `/finishing`,别顺手改(两处都改 = 双写漂移)。
 
