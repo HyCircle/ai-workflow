@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_wo_intent.sh\"",
+            "timeout": 30,
+            "statusMessage": "闸门3:校验工单意图行"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/doc_guard.sh\"",
+            "timeout": 60,
+            "statusMessage": "文档结构守护:check_docs"
+          }
+        ]
+      }
+    ]
+  }
+}
