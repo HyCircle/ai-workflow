@@ -25,7 +25,7 @@ description: Cursor/composer 侧的回溯性文档维护与清理。读本 sessi
   # 保留最近 20 个已完成 run,其余带 .done 的删(在跑/失败无 .done 的一律留)
   ls -1dt scratchpad/runs/*/ 2>/dev/null | while read d; do [ -f "$d/.done" ] && echo "$d"; done | tail -n +21 | xargs -r rm -rf
   ```
-- **死链核查**:跑 `uv run python scripts/workflow/check_docs.py`(canonical:ADR frontmatter + ADR-NNNN 断链;精确正则,比手写 grep 可靠)。
+- **死链核查**:跑 `$WF_PY scripts/workflow/check_docs.py`(canonical:ADR frontmatter + ADR-NNNN 断链;精确正则,比手写 grep 可靠)。`$WF_PY` 等命令档读 `.claude/workflow.env`(与 planner / 脚本同源,换项目只动那一处)。
 
 ### 路径 B — 候选清单 → 人 IDE 确认 → 再删
 对 `scripts/`·`data/`·`docs/` 等 **tracked 文件**的删除 / 搬迁,出一张【路径 + 理由 + 风险等级】清单,用户在 IDE 勾选后才动手——**你自己判断上不动手删 tracked 文件**(scratch 删除不进 git diff,过宽的删除权没有 diff 兜底)。**architecture 的判断型改写**(把已落地现状叙述进去)你写、人审 diff;吃不准是否承重就只出「建议清单」交人。
@@ -42,5 +42,6 @@ description: Cursor/composer 侧的回溯性文档维护与清理。读本 sessi
 ## 收尾自检
 - 本轮碰过的常量 / 配置名,文档说法与代码实况一致?
 - 新事实归位(领域坑 → 代码注释;成规则的教训 → 标给 Claude 侧冻进 ADR;现状 → architecture;下一步 → TODO)?**各归其家,不往一个中央池堆**(只进不出的池子会烂)。
-- `uv run python scripts/workflow/check_docs.py` 干净?
+- 本轮碰过的 `.claude/skills` / `hooks` / `*-preamble` 提示词,按 §0.6 扫伤疤(往复句式 / 「否则会 X」括注 / 同一点复述三四遍)?提示词是每 session 每 agent 都读的高杠杆语料,却没有 ADR/architecture 那样的闸门——这一扫补上。发现的**标进候选清单交人**(提示词是 tracked,走路径 B,不自己改)。
+- `$WF_PY scripts/workflow/check_docs.py` 干净?
 - 路径 B 的候选清单已交用户,没自己删 tracked 文件 / 没改 ADR 正文?

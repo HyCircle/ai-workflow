@@ -15,8 +15,8 @@ self_expose () {  # 打点自曝:fail-open 但留信号,不静默(§0.2)
 
 # 只在「把 run_worker.sh / rw.snap.sh 当命令跑、且后面紧跟 .md 工单参数」= 真派单时动作。
 # 也认自举副本 rw.snap.sh(planner 自改脚本时从副本跑,见 /planner skill 自举纪律)。
-# 仅「提到」脚本(bash -n / cp / cat / grep / 编辑它)或不带 .md → 不是派单,静默放行——
-# 否则会误抓命令里任意一个无关 .md 当工单、假拦合法命令(如 `cp …0000-template.md …`)。
+# 「提到」脚本(bash -n / cp / cat / grep / 编辑它)或不带 .md → 不是派单,静默放行。
+# 匹配限定为「脚本名 + 紧跟的 .md 工单参数」这一形,只认真派单;命令里其它无关 .md(如 `cp …0000-template.md …`)不参与匹配。
 dispatch="$(printf '%s' "$cmd" | grep -oE '(run_worker|rw\.snap)\.sh[[:space:]]+[^[:space:]]+\.md' | head -1)"
 [ -n "$dispatch" ] || exit 0
 wo="$(printf '%s' "$dispatch" | grep -oE '[^[:space:]]+\.md$')"

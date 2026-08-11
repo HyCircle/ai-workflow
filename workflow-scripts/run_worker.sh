@@ -11,7 +11,7 @@
 #   工单文件 : 必填,通常 scratchpad/PL-<id>/WO-current.md
 #   模型写法 : 「后端/模型」,后端 = cursor(默认,可省)| codex。
 #              例:cursor/composer-2.5 · codex/deepseek-v4-flash · gpt-5.3-codex(省前缀=cursor)
-#   执行模型 : 默认 cursor/composer-2.5(**不用 -fast**)。硬骨头换 cursor 更强模型 / codex/deepseek-v4-flash。
+#   执行模型 : 默认 cursor/composer-2.5(用标准档,非 -fast)。硬骨头换 cursor 更强模型 / codex/deepseek-v4-flash。
 #   审查模型 : 默认 codex/deepseek-v4-flash(**跨厂异构** worker,真独立第二双眼;实测 > luna,便宜)。
 #   审查模型2: 可选。给了就**双验收**(两单都回 planner 交叉检验,任一 NO-GO 即打回)。高危/复杂用。
 #              例:… cursor/composer-2.5 codex/deepseek-v4-flash cursor/gpt-5.6-luna

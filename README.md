@@ -5,7 +5,7 @@
 
 ## 为什么单独一份
 `.claude/` 与 `scripts/workflow/` 在每个项目里是**已安装副本(gitignored)**,不在原地进版本库。
-机制的版本管理**只在这里**(单一事实源);各项目经 `install.sh` 装入这份的副本。改工作流 = 改 `workflow-kit/` → 重跑 `install.sh` 推给项目。
+机制的版本管理**只在这里**(单一事实源);各项目经 `install.sh` 装入这份的副本。改工作流 = 改 `workflow-kit/` → 重跑 `install.sh` 推给项目。**方向单一(kit → 项目)**,不在项目的 live 副本上改再回抓。
 
 ## 结构
 - `claude/` → 装进项目 `.claude/`:`skills/`(bs·planner·finishing·cleaning + 子文件)、`hooks/`(doc_guard·check_wo_intent)、`settings.json`(hooks 注册)、`workflow.env.example`。
@@ -23,6 +23,8 @@ cp .claude/workflow.env.example .claude/workflow.env    # 填模型/命令档
 # 目标 .gitignore 需忽略 .claude/ 与 scripts/workflow/;重启 Claude Code 让 hooks 生效
 ```
 
+## 新项目 bootstrap(还没 ADR 时)
+`install.sh` 已 seed 出 AGENTS.md(常驻纪律 + 文档地图)与 `decisions/0000-template.md`。再自己补空 `decisions/` 与 `TODO.md`、填 `.claude/workflow.env`;第一个架构选择直接走 `/bs` 著作 ADR-0001。冷启动清单里 architecture/TODO 可暂缺,读到什么算什么。
+
 ## 现状(transition)
-- **source of truth 是本 kit**:改工作流只动 `workflow-kit/`,再 `install.sh` 推给消费项目。
-- 稳定后再真正抽成独立 repo(见 `workflow.md` §5「远期」),届时把中英兼容一并做。
+机制现以本 kit 为家(见「为什么单独一份」)。**稳定后抽成独立 repo**,届时开源上 GitHub、补全平台兼容(编排偏 Python,bash hook 是 Windows 坎)与中英兼容(机制层单一 canonical 语言,别手写两份)。

@@ -44,5 +44,5 @@
 
 ## 验收(planner 会亲自跑;worker 报告前也须自测绿)
 - `$WF_TEST_CMD <具体路径>` —— 期望 <基线+新增> 全绿
-- ADR 结构/断链:`uv run python scripts/workflow/check_docs.py --changed`(canonical,用 python 不用 grep)
+- ADR 结构/断链:`$WF_PY scripts/workflow/check_docs.py --changed`(canonical,用 python 不用 grep;`$WF_PY` 读 `.claude/workflow.env`)
 - <本批特定的功能验收点>
