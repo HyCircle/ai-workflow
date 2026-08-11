@@ -101,7 +101,7 @@ if [ "${SKIP_REVIEW:-0}" != "1" ]; then
   fi
 fi
 
-# 并行派发:每个验收员后台起 call_agent(只读,各写各的 review 文件,零写冲突),token 落 <file>.tok
+# 并行派发:每个验收员后台起 call_agent(约定不改树——见 call_agent 头注;各写各自的 review 文件,输出零冲突),token 落 <file>.tok
 REVIEW_PIDS=()
 for i in "${!REVIEW_MODELS[@]}"; do
   rm="${REVIEW_MODELS[$i]}"; rfile="${REVIEW_FILES[$i]}"
