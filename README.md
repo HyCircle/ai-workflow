@@ -5,13 +5,14 @@
 
 ## 为什么单独一份
 `.claude/` 与 `scripts/workflow/` 在每个项目里是**已安装副本(gitignored)**,不在原地进版本库。
-机制的版本管理**只在这里**;各项目经 `install.sh` 装入,live 改动经 `snapshot-from.sh` 回抓再提交。
+机制的版本管理**只在这里**(单一事实源);各项目经 `install.sh` 装入这份的副本。改工作流 = 改 `workflow-kit/` → 重跑 `install.sh` 推给项目。
 
 ## 结构
 - `claude/` → 装进项目 `.claude/`:`skills/`(bs·planner·finishing·cleaning + 子文件)、`hooks/`(doc_guard·check_wo_intent)、`settings.json`(hooks 注册)、`workflow.env.example`。
-- `workflow-scripts/` → 装进项目 `scripts/workflow/`:`run_worker.sh`(两阶段派单)、`check_docs.py`(ADR frontmatter + 断链)、`transcribe_session.py`(会话转写)。
-- `seed/` → 新项目首次 seed:`decisions/0000-template.md`(ADR 模板)、`docs/workflow.md`(设计蓝图 / 权威)。
-- `install.sh` / `snapshot-from.sh` —— 装入 / 回抓。
+- `workflow-scripts/` → 装进项目 `scripts/workflow/`:`run_worker.sh`(两阶段派单)、`call_agent.sh`(外呼便宜 agent 的公共入口:派 prompt、把回复落成 md)、`check_docs.py`(ADR frontmatter + 断链)、`transcribe_session.py`(会话转写)。
+- `seed/` → 新项目首次 seed(已存在则不覆盖):`AGENTS.md`(常驻纪律 + 文档地图)、`decisions/0000-template.md`(ADR 模板)。
+- `workflow.md` —— 设计蓝图 / 权威(**给人/维护者读**,不 seed 进消费项目、agent 不引用它)。
+- `install.sh` —— 把本 kit 装进 / 更新一个项目。
 
 ## 用法
 ```bash
@@ -20,11 +21,8 @@
 cd /path/to/target-project
 cp .claude/workflow.env.example .claude/workflow.env    # 填模型/命令档
 # 目标 .gitignore 需忽略 .claude/ 与 scripts/workflow/;重启 Claude Code 让 hooks 生效
-
-# trial 期在某项目直接改了 live 机制后,回抓进本 kit 再提交
-/path/to/workflow-kit/snapshot-from.sh /path/to/that-project
 ```
 
 ## 现状(transition)
-- **source of truth 暂时是各项目的 live 文件**(正在 hubpage 里试用);本 kit 是 tracked 快照。
-- 稳定后再真正抽成独立 repo(见 `seed/docs/workflow.md` §5「远期」)。届时命令泛化(WF_TEST_CMD / WF_PY tokenize)、中英兼容一并做。
+- **source of truth 是本 kit**:改工作流只动 `workflow-kit/`,再 `install.sh` 推给消费项目。
+- 稳定后再真正抽成独立 repo(见 `workflow.md` §5「远期」),届时把中英兼容一并做。

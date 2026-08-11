@@ -20,7 +20,7 @@ description: Cursor/composer 侧的回溯性文档维护与清理。读本 sessi
 ### 路径 A — 直接执行(机械 / 易失项)
 确定性、无判断、或有 canonical 工具背书的,直接做:
 - **清 scratch 角色目录**:本 session 的 `scratchpad/<PL|BS>-<sessionid>/` 整目录清(含 transcript.md)。当前这一轮先留着——留到**后续** cleaning 随目录清(避开人审 ADR 冻结的时序窗口)。
-- **run 目录 GC**(旧 scratch_gc 已折进这里,几行 find):删 `scratchpad/runs/<run-id>/` 里**有 `.done` 且超期**的(`.done` 由派单脚本 touch;保留最近 N 个 + 未超龄)。失败/中断没 `.done` 的,诊断价值没了你判断补删。
+- **run 目录 GC**(几行 find):删 `scratchpad/runs/<run-id>/` 里**有 `.done` 且超期**的(`.done` 由派单脚本 touch;保留最近 N 个 + 未超龄)。失败/中断没 `.done` 的,诊断价值没了你判断补删。
   ```bash
   # 保留最近 20 个已完成 run,其余带 .done 的删(在跑/失败无 .done 的一律留)
   ls -1dt scratchpad/runs/*/ 2>/dev/null | while read d; do [ -f "$d/.done" ] && echo "$d"; done | tail -n +21 | xargs -r rm -rf
@@ -35,12 +35,12 @@ description: Cursor/composer 侧的回溯性文档维护与清理。读本 sessi
 1. **永久保护**:grep 命中 `NO-GO` / `别翻案` / `已验证净负` / `留档不删` / `别重做` → 一律保留。删错 = 有人重跑一个已否掉的实验(灾难),留着廉价,风险不对称。
 2. **探针脚本按其决策存活**:探针保护的是**某个 ADR 决策的复跑记录**。决策还 `accepted` → 连探针带结论保;决策已 `superseded`/整摊子过时 → 连探针带结论一起清(进候选清单)。
 3. **import 成簇原子**:删被 import 的脚本前先 grep import,连簇一起处理。
-4. **蒸馏红线**:吃不准是否承重 → 进候选清单给人。蒸馏只压表达,数据形状 / 硬上限 / 判据措辞照抄不动。带 `ADR-NNNN` 引用锚点的说法保留(删了造死链)。
+4. **蒸馏红线**:吃不准是否承重 → 进候选清单给人。蒸馏只压表达,数据形状 / 硬上限 / 判据措辞照抄不动。带 `ADR-NNNN` 引用锚点的说法保留(删了造死链)。**同病防治**:architecture/TODO 也按 §0.6 正面写——只写「现在是什么」,同一事实只一处。
 
 真两难默认归人。
 
 ## 收尾自检
 - 本轮碰过的常量 / 配置名,文档说法与代码实况一致?
-- 新事实归位(领域坑 → 代码注释;成规则的教训 → 新/改 ADR;现状 → architecture;下一步 → TODO)?**不往中央池追加**(旧 LESSONS/BACKLOG 已溶解,病根 = 只进不出)。
+- 新事实归位(领域坑 → 代码注释;成规则的教训 → 标给 Claude 侧冻进 ADR;现状 → architecture;下一步 → TODO)?**各归其家,不往一个中央池堆**(只进不出的池子会烂)。
 - `uv run python scripts/workflow/check_docs.py` 干净?
 - 路径 B 的候选清单已交用户,没自己删 tracked 文件 / 没改 ADR 正文?

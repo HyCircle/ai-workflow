@@ -10,6 +10,8 @@ tags: []                # 领域标签,便于「碰这块前先读相关 ADR」,
 
 # ADR-0000: <一句话结论——与 frontmatter title 一致>
 
+> **写作纪律**:正文只写**现在**的结论——红队/复审的修正正面折入、改写对应契约本身,原文留 scratchpad 备查。**同一事实只一处**:决策段是它的家,判据/备选/后果只引不复述。**备选每条一句**(「若选它会怎么错」),超一句就拆或砍。不设字数硬顶(该复杂就长),但这几条被违反 = 该蒸馏的信号。
+
 ## 意图(为什么存在 —— 散文 2–3 句)
 <为什么要这个决策 / 用户可见价值 / 边界。冷读者靠这段理解「为什么」,不是「怎么做」。>
 
@@ -33,7 +35,7 @@ tags: []                # 领域标签,便于「碰这块前先读相关 ADR」,
 ADR 约定(新建时删掉本注释):
 - 文件名 decisions/NNNN-<kebab-英文-slug>.md,NNNN 四位零填充递增。frontmatter.id 必须与文件名一致。
 - 引用写 `ADR-NNNN`(断链检查认这个 token → 查 decisions/NNNN-*.md 在不在)。
-- **不可变**:决策变了 → 新开 ADR,新 ADR 的 supersedes 填旧 id,旧 ADR 的 status 改 superseded、superseded_by 填新 id。**不改旧 ADR 正文**。这取代旧 PLAN 的「§X.0 修正块」——文件级 supersede,不在文件内打补丁。
+- **不可变**:决策变了 → 新开 ADR,新 ADR 的 supersedes 填旧 id,旧 ADR 的 status 改 superseded、superseded_by 填新 id。**不改旧 ADR 正文**——文件级 supersede,不在文件内打补丁。
 - **ADR 可单文件、也可文件夹**:无附件 → 单文件 `decisions/NNNN-slug.md`;有附件(原始数据 json/csv、notebook、一次性辅助脚本)→ 文件夹 `decisions/NNNN-slug/`,**主 md 与文件夹同名** `decisions/NNNN-slug/NNNN-slug.md`(不叫 README——编辑器多标签才认得出是哪个决策),所有相关文件就近同放该文件夹。ADR 正文只留结论 + 判据,数据在旁。
 - 一次性实验脚本随数据留在 ADR 文件夹;某脚本若成了长期复用工具,再毕业到 `scripts/`。
 - **只写有把握的长期决定**:决定稳定(不可逆 / 会被反复引用)、且你有把握时才建 ADR;没把握的部分留待实现里稳了,由 planner 就地冻结。早期高频探索留 scratchpad。

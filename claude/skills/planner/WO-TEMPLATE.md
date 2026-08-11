@@ -16,7 +16,7 @@
 ## 抬头
 - **本单服务 → ADR-NNNN 的意图:<抄那句意图>**(闸门3;缺此行 / 不指向 ADR-NNNN,派单 hook 会 deny)
 - 承接 HEAD:<git short sha / 分支>
-- 测试基线:<当前 `uv run pytest` 的数字,如 128 passed>
+- 测试基线:<当前 `$WF_TEST_CMD` 的数字,如 128 passed>
 - SSOT:<本工单契约以哪个 ADR / architecture 节为准,如 ADR-0001、architecture §5.3>
 
 ## 目标(1 行,可验证)
@@ -28,7 +28,7 @@
 
 ## 明确不做(防越界)
 - <本批不碰什么 / 留给哪个后续工单>
-- 红线:一行不许碰 `decisions/`·`architecture.md`·`AGENTS.md`(著作类文件,只 Claude 层动,§2.5)
+- 红线:一行不许碰 `decisions/`·`architecture.md`·`AGENTS.md`(著作类文件;worker 只写代码 + scratchpad)
 
 ## ⚠️ 陷阱预判(planner 预判 worker 会怎么做错——最值钱的一节)
 - <照直做会踩的坑。例:别原地覆盖旧数据;for…else 裸 break;某字段是字符串不是 epoch;
@@ -43,6 +43,6 @@
 ### T2 — …
 
 ## 验收(planner 会亲自跑;worker 报告前也须自测绿)
-- `uv run pytest <具体路径>` —— 期望 <基线+新增> 全绿
+- `$WF_TEST_CMD <具体路径>` —— 期望 <基线+新增> 全绿
 - ADR 结构/断链:`uv run python scripts/workflow/check_docs.py --changed`(canonical,用 python 不用 grep)
 - <本批特定的功能验收点>

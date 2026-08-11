@@ -33,7 +33,7 @@
 
 ## 文档系统(冷启动读这张地图)
 
-一类信息一个家(全景见 `docs/workflow.md`):
+一类信息一个家:
 - **AGENTS.md**(本文件)= 常驻纪律 + 工具约定 + 本地图。
 - **architecture.md** = 当前设计现状/地图(各 ADR 的合成视图,冲突时 ADR 赢)。
 - **decisions/**(ADR)= 冻结决策(why + 可测契约 + 证据),`ADR-NNNN` 引用(ADR 多了再加 `index.md`)。

@@ -25,7 +25,7 @@ printf '%s' "$out" | grep -q '✗' || exit 0
 jq -n --arg out "$out" '{
   hookSpecificOutput: {
     hookEventName: "PostToolUse",
-    additionalContext: ("文档结构守护(check_docs --changed)报问题:\n" + $out + "\n(自行判定修不修;ADR 结构/断链只认此脚本,别手写 grep)")
+    additionalContext: ("文档结构守护(check_docs --changed)报问题:\n" + $out + "\n(自行判定修不修;ADR 结构/断链只认此脚本)")
   }
 }'
 exit 0

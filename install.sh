@@ -2,7 +2,7 @@
 # workflow-kit/install.sh — 把工作流机制装进一个目标项目。
 # 用法: /path/to/workflow-kit/install.sh [目标项目根,默认当前目录]
 # 装什么:.claude/{skills,hooks,settings.json,workflow.env.example} + scripts/workflow/*.{py,sh}
-#         + 首次 seed AGENTS.md(+CLAUDE.md 软链)、decisions/0000-template.md、docs/workflow.md(已存在则不覆盖)。
+#         + 首次 seed AGENTS.md(+CLAUDE.md 软链)、decisions/0000-template.md(已存在则不覆盖)。
 set -euo pipefail
 KIT="$(cd "$(dirname "$0")" && pwd)"
 DEST="${1:-$(pwd)}"
@@ -25,7 +25,7 @@ fi
 [ -f "$DEST/AGENTS.md" ]                  || cp "$KIT/seed/AGENTS.md" "$DEST/AGENTS.md"
 [ -e "$DEST/CLAUDE.md" ]                  || ln -s AGENTS.md "$DEST/CLAUDE.md" 2>/dev/null || echo "⚠ 未能建 CLAUDE.md 软链(Windows?)——请手动让 CLAUDE.md 指向 AGENTS.md"
 [ -f "$DEST/decisions/0000-template.md" ] || { mkdir -p "$DEST/decisions"; cp "$KIT/seed/decisions/0000-template.md" "$DEST/decisions/"; }
-[ -f "$DEST/docs/workflow.md" ]           || { mkdir -p "$DEST/docs";      cp "$KIT/seed/docs/workflow.md" "$DEST/docs/"; }
+# 注:workflow.md 是维护者蓝图,常驻 workflow-kit/workflow.md,不 seed 进消费项目(agent 不读它)。
 
 cat <<EOF
 ✓ 已装入 $DEST

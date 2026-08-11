@@ -171,7 +171,7 @@ hooks / 异构红队是**随任务调用的机制**(planner 按需升级),不是
 ## 5. 实施顺序 & 远期
 
 - **顺序**:先在 hubpage **就地**按本蓝图从零重建工作流 + 完成文档系统迁移 → **真跑一轮验证** → 再抽取中立机制进**独立模板仓**(别对动靶抽取)。
-- **实施清单(给施工 session,按序)**:① 改 `.gitignore` track 机制 + 出 `workflow.env.example`;② 照 §2.4 从零重写 4 skill(bs/planner/finishing/cleaning)——**不改旧文件**;③ 重写 2 hook(doc_guard 认 ADR/architecture、check_wo_intent 认 ADR-NNNN 且不静默);④ 合并 check_deadlinks→check_docs、scratch_gc 折进 cleaning;⑤ `workflow.env` 强审改成**非 cursor 厂**(≠worker,§2.5);⑥ architecture.md 瘦身(§11/13/16/17→TODO、§15→example、复核已种的 ADR-0001)——**破坏性,先出切分方案再动**;⑦ 建 `TODO.md`;⑧ 真跑一轮闭环验证。
+- **实施清单(给施工 session,按序)**:① 改 `.gitignore` track 机制 + 出 `workflow.env.example`;② 照 §2.4 从零重写 4 skill(bs/planner/finishing/cleaning)——**不改旧文件**;③ 重写 2 hook(doc_guard 认 ADR/architecture、check_wo_intent 认 ADR-NNNN 且不静默);④ 合并 check_deadlinks→check_docs、scratch_gc 折进 cleaning;⑤ `workflow.env` 强审改成 **≠ worker 的模型家族**(§2.5);⑥ architecture.md 瘦身(§11/13/16/17→TODO、§15→example、复核已种的 ADR-0001)——**破坏性,先出切分方案再动**;⑦ 建 `TODO.md`;⑧ 真跑一轮闭环验证。
 - **机制必须 track**:现 `.claude/`、`scripts/workflow/`、`workflow.env` 全 gitignored = 新机器 clone 后零钩子零脚本。实施时改 `.gitignore`:**track 机制**(`.claude/skills`、`.claude/hooks`、`scripts/workflow` 的 `*.py`/`*.sh`)+ 只 gitignore **每机的值**(`workflow.env`,另 track 一份 `workflow.env.example`)。
 - **新项目 bootstrap(还没 ADR 时)**:先建 AGENTS.md(§0 + 工具约定 + 文档地图)→ 空 `decisions/` + `TODO.md` → 第一个架构选择直接走 bs 著作 ADR-0001。冷启动清单里 architecture/TODO 可暂缺,读到什么算什么。
 - **远期(抽取模板仓之后)**:开源上 GitHub;全平台兼容(编排偏 Python,bash hook 是 Windows 坎);中英兼容(机制层单一 canonical 语言,别手写两份)。
