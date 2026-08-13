@@ -377,15 +377,12 @@ def parse_sections(records: list[dict[str, Any]]) -> list[ParsedSection]:
 def transcribe(
     records: list[dict[str, Any]],
     max_total_tokens: int = DEFAULT_MAX_TOTAL_TOKENS,
-    *,
-    max_result_chars: int | None = None,  # deprecated; ignored (results omitted)
 ) -> TranscriptResult:
     """Render filtered dialogue records to markdown transcript.
 
     Budget is a soft token cap. Over budget → compression ladder (tool noise only).
     Never silently hard-truncates natural-language text with ``text[:N]+"..."``.
     """
-    del max_result_chars  # results omitted by design; keep kw for call-site backcompat
     sections = parse_sections(records)
     dialogue_count = len(filter_dialogue_records(records))
 
@@ -473,36 +470,9 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_MAX_TOTAL_TOKENS,
         help=f"Soft cap in approx tokens (default: {DEFAULT_MAX_TOTAL_TOKENS})",
     )
-    # Deprecated alias: maps 1:1 onto tokens (inaccurate unit; warn once).
-    parser.add_argument(
-        "--max-total-chars",
-        type=int,
-        default=None,
-        help=argparse.SUPPRESS,  # hidden deprecated alias
-    )
-    parser.add_argument(
-        "--max-result-chars",
-        type=int,
-        default=None,
-        help=argparse.SUPPRESS,  # deprecated; tool_result bodies omitted
-    )
     args = parser.parse_args(argv)
 
     max_tokens = args.max_total_tokens
-    if args.max_total_chars is not None:
-        print(
-            "warning: --max-total-chars is deprecated; "
-            "mapping value directly to --max-total-tokens "
-            "(chars≠tokens; prefer --max-total-tokens)",
-            file=sys.stderr,
-        )
-        max_tokens = args.max_total_chars
-    if args.max_result_chars is not None:
-        print(
-            "warning: --max-result-chars is ignored; "
-            "tool_result bodies are omitted by default",
-            file=sys.stderr,
-        )
 
     try:
         jsonl_path = resolve_jsonl_path(args.jsonl, args.session)

@@ -12,9 +12,9 @@
 #   模型写法 : 「后端/模型」,后端 = cursor(默认,可省)| codex。
 #              例:cursor/composer-2.5 · codex/deepseek-v4-flash · gpt-5.3-codex(省前缀=cursor)
 #   执行模型 : 默认 cursor/composer-2.5(用标准档,非 -fast)。硬骨头换 cursor 更强模型 / codex/deepseek-v4-flash。
-#   审查模型 : 默认 codex/deepseek-v4-flash(**跨厂异构** worker,真独立第二双眼;实测 > luna,便宜)。
+#   审查模型 : 默认 cursor/gpt-5.6-luna-max(**跨厂异构** worker,真独立第二双眼)。
 #   审查模型2: 可选。给了就**双验收**(两单都回 planner 交叉检验,任一 NO-GO 即打回)。高危/复杂用。
-#              例:… cursor/composer-2.5 codex/deepseek-v4-flash cursor/gpt-5.6-luna
+#              例:… cursor/composer-2.5 cursor/gpt-5.6-luna-max codex/deepseek-v4-flash
 #   环境变量 SKIP_REVIEW=1   : 跳过②(琐碎/小改分档用;见 /planner skill 三档分诊)。
 #   环境变量 REVIEW_ONLY=1   : 跳过①,只对当前工作树跑②(轻验收;planner 自改后独立验收)。与 SKIP_REVIEW 互斥。
 #
@@ -30,7 +30,7 @@ cd "$ROOT"
 [ -f "$ROOT/.claude/workflow.env" ] && . "$ROOT/.claude/workflow.env"
 
 MODEL="${2:-${WF_WORKER_MODEL:-cursor/composer-2.5}}"
-REVIEW_MODEL="${3:-${WF_REVIEW_MODEL:-codex/deepseek-v4-flash}}"
+REVIEW_MODEL="${3:-${WF_REVIEW_MODEL:-cursor/gpt-5.6-luna-max}}"
 REVIEW_MODEL_2="${4:-}"   # 双验收=按需 opt-in:planner 显式传第4参(通常 $WF_REVIEW_MODEL_STRONG)才触发;不从 env 自动读,免每单都双验
 
 CALL_AGENT="$ROOT/scripts/workflow/call_agent.sh"

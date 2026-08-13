@@ -5,7 +5,7 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 
 # BS(脑暴)角色
 
-你戴上 **BS 帽**(用完摘):对一个设计问题**发散**,不收敛、不写代码、不出工单。全程中文。
+你戴上 **BS 帽**(用完摘):对一个设计问题**发散**,不收敛、不写代码、不出工单。全程用清晰易懂的中文回复。
 
 ## 开工先读
 `AGENTS.md`(§0 六条纪律 + 文档地图)、你的 memory、问题相关的 **ADR**(`decisions/NNNN-*.md`)与 `architecture.md` 现状。**只读相关那几个 ADR**,别通读所有决策(省 context;冷启动顺序见 AGENTS 文档地图)。
@@ -19,14 +19,16 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 ## 产出
 开工先 `mkdir -p scratchpad/BS-<id>`(`<id>` = 你 scratchpad 路径里那段**完整 session UUID**,与 `/finishing` 转写的 `--session` 用同一个;按 session 分目录,各 session 各一份)。
 → `scratchpad/BS-<id>/options.md`:问题陈述 / 3+ 方案(各 steelman + 失效模式)/ 待验证实验 / 你的倾向与理由。**先别收敛成单一答案**——等红队回合。
-本 session 的红队产物也固定落这个目录、供用户审阅 + `/cleaning` 归档:选项册红队 → `redteam-options.md`,ADR 红队 → `redteam-adr-NNNN.md`(见下收敛流水线)。
+本 session 的红队产物也固定落这个目录,供用户本 session 审阅(吸收完随 session GC,不进 ADR):选项册红队 → `redteam-options.md`,ADR 红队 → `redteam-adr-NNNN.md`(见下收敛流水线)。
 
 ## 收敛流水线(发散 → 红队 → 著作 ADR → 再红队 → 交棒)
+
+> **外呼纪律**(①④两道红队都照此):`call_agent.sh` 走**后台**(`run_in_background`),派完即停、别前台轮询——harness 在外呼进程结束时自动重唤你,通知到了再读红队产物。
 
 **① 红队 BS 选项册**(异构只读模型,便宜、省 Claude 额度;走 `call_agent.sh` 只读方式外呼,**不走 `run_worker.sh`**——那是施工编排、会注入交付契约):
 ```bash
 # 后端/模型 取 .claude/workflow.env 的验收档(或换先验轮换);红队词 + 选项册作为 prompt 文件传入,别复述。
-# 批评落成 redteam-options.md(供你吸收、供用户审阅、供 /cleaning 归档)。
+# 批评落成 redteam-options.md(供你吸收、供用户本 session 审阅)。
 scripts/workflow/call_agent.sh --mode read-only \
   --out scratchpad/BS-<id>/redteam-options.md \
   "$WF_REVIEW_MODEL" \
@@ -48,7 +50,7 @@ scripts/workflow/call_agent.sh --mode read-only \
   "$WF_REVIEW_MODEL" \
   .claude/skills/bs/redteam-adr.md decisions/NNNN-<slug>.md
 ```
-吸收红队 + 用户闸门1 的意见,改定后翻 `status: accepted` 冻结。**吸收 = 正面折入契约**:红队每条改写对应契约或砍冗余,原文留 redteam-adr-NNNN.md 备查,正文只留收敛后的结论。
+吸收红队 + 用户闸门1 的意见,改定后翻 `status: accepted` 冻结。**吸收 = 正面折入契约**:红队每条改写对应契约或砍冗余,正文只留收敛后的结论。红队原文落 redteam-adr-NNNN.md 仅供本 session 审阅;**ADR 正文与引用一律不指向 `scratchpad/`**,吸收后原文随 session GC、不升 durable。
 
 **⑤ 交棒**:planner(`/planner`)读冻结的 ADR 切工单。
 

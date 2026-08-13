@@ -36,7 +36,12 @@ _ID_RE = re.compile(r"^id:\s*['\"]?(\d{1,4})['\"]?\s*$")
 _STATUS_RE = re.compile(r"^status:\s*([a-z]+)")
 
 # 扫 `ADR-NNNN` 引用的文本后缀(scratchpad 已 gitignore,不入扫描)。
-_REF_SUFFIXES = frozenset({".py", ".md", ".ts", ".tsx", ".js", ".rs", ".toml"})
+_REF_SUFFIXES = frozenset({".py", ".md", ".ts", ".tsx", ".js", ".rs", ".toml", ".sh"})
+
+
+def _is_adr_stem(stem: str) -> bool:
+    """NNNN-slug 且非模板(0000-template 是脚手架,不算 ADR)。"""
+    return bool(_FILENAME_RE.match(stem)) and not stem.endswith("-template")
 
 
 def _git_lines(args: list[str]) -> list[str]:
@@ -76,9 +81,8 @@ def _existing_adr_ids() -> set[str]:
         return ids
     for entry in DECISIONS.iterdir():
         stem = entry.name[:-3] if entry.name.endswith(".md") else entry.name
-        m = _FILENAME_RE.match(stem)
-        if m and (entry.is_file() and entry.name.endswith(".md") or entry.is_dir()):
-            ids.add(m.group(1))
+        if _is_adr_stem(stem) and (entry.is_file() and entry.name.endswith(".md") or entry.is_dir()):
+            ids.add(_FILENAME_RE.match(stem).group(1))
     return ids
 
 
@@ -89,9 +93,9 @@ def _adr_main_files() -> list[Path]:
         return out
     for entry in sorted(DECISIONS.iterdir()):
         if entry.is_file() and entry.name.endswith(".md"):
-            if _FILENAME_RE.match(entry.name[:-3]):
+            if _is_adr_stem(entry.name[:-3]):
                 out.append(entry)
-        elif entry.is_dir() and _FILENAME_RE.match(entry.name):
+        elif entry.is_dir() and _is_adr_stem(entry.name):
             main = entry / f"{entry.name}.md"  # 主 md 与文件夹同名(不叫 README)
             if main.is_file():
                 out.append(main)
@@ -136,6 +140,8 @@ def find_dead_refs(changed_only: bool) -> list[tuple[str, str, list[str]]]:
     scope = _changed_files() if changed_only else None
     refs: dict[str, list[str]] = {}
     for p in _repo_text_files():
+        if p.stem.endswith("-template"):
+            continue  # 模板是脚手架:其 ADR 号占位符不算真实引用
         if scope is not None and p.resolve() not in scope:
             continue
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):

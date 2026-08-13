@@ -6,7 +6,7 @@
 #   ① run_worker.sh 的执行阶段(worker 施工,--mode write)
 #   ② run_worker.sh 的验收阶段(独立验收,--mode read-only,可并行多个)
 #   ③ bs/planner 的 red-team(冻结前审 options/ADR,--mode read-only)
-#   每个外部 agent 的回复都落成一个固定路径的 md,CC 只读那个 md;red-team 批评也就可审阅、可归档。
+#   每个外部 agent 的回复都落成一个固定路径的 md,CC 只读那个 md;red-team 批评也就供本 session 审阅。
 #
 # 用法: call_agent.sh --mode <write|read-only> --out <文件> <后端/模型> <prompt文件...>
 #   --mode write     : worker 施工,可改工作树。
@@ -49,7 +49,10 @@ case "$BACKEND" in
     command -v cursor-agent >/dev/null || { echo "✗ 找不到 cursor-agent" >&2; exit 3; }
     # read-only = --mode ask(只读规划,不改树);write = --force --trust(免交互放行,可改树)
     if [ "$MODE" = "read-only" ]; then MODE_FLAGS=(--mode ask --trust); else MODE_FLAGS=(--force --trust); fi
-    out="$(cursor-agent -p "$PROMPT" --model "$MODEL" "${MODE_FLAGS[@]}" --output-format json 2>/dev/null)"; rc=$?
+    ERR="$(mktemp)"
+    out="$(cursor-agent -p "$PROMPT" --model "$MODEL" "${MODE_FLAGS[@]}" --output-format json 2>"$ERR")"; rc=$?
+    cat "$ERR" >&2   # CLI stderr 交回上层日志(run_worker 的 2>>LOG 收走),不静默吞(§0.2)
+    rm -f "$ERR"
     # cursor json:文本在 .result,token 在 .usage
     text="$(printf '%s' "$out" | jq -r '.result // .text // .message // empty' 2>/dev/null)"
     [ -n "$text" ] || text="$out"   # 解析不出就落原始输出,别静默丢产物
@@ -60,10 +63,13 @@ case "$BACKEND" in
     # 两档都走 bypass(机器本就是可信单机,worker 也这么跑)。Codex 没有「能跑命令又禁改树」的档:
     # -s read-only 会把 tmp/工具链缓存/loopback 网络一并锁死,验收连 uv/pytest 都跑不了、空耗 token。
     # read-only 的「不改树」是约定,靠 review-preamble + 收尾 git status 兜,不靠 OS 沙箱。
-    out="$(printf '%s' "$PROMPT" | codex exec --dangerously-bypass-approvals-and-sandbox -m "$MODEL" -C "$ROOT" 2>/dev/null)"; rc=$?
+    ERR="$(mktemp)"
+    out="$(printf '%s' "$PROMPT" | codex exec --dangerously-bypass-approvals-and-sandbox -m "$MODEL" -C "$ROOT" 2>"$ERR")"; rc=$?
+    cat "$ERR" >&2   # CLI stderr 交回上层日志,不静默吞(§0.2)
     text="$out"
-    # codex plain 输出末尾有「tokens used\n<数字>」,取那个数字
-    usage="$(printf '%s' "$out" | awk '/tokens used/{getline; gsub(/^ +/,""); print; exit}')"
+    # codex plain 输出的「tokens used\n<数字>」可能落 stdout 或 stderr,两处都试同一解析
+    usage="$(printf '%s\n%s' "$out" "$(cat "$ERR")" | awk '/tokens used/{getline; gsub(/^ +/,""); print; exit}')"
+    rm -f "$ERR"
     ;;
   *) echo "✗ 未知后端: $BACKEND(只支持 cursor|codex)" >&2; exit 3 ;;
 esac

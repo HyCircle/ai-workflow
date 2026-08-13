@@ -70,7 +70,7 @@
 ### 1.5 scratchpad/(ephemeral,gitignored)
 - session 分目录:`PL-<uuid>` / `BS-<uuid>`(完整 session UUID);派单产物 `runs/<run-id>`(时间戳+PID,并发唯一)。
 - 装:WO、worker report、验收单、run.log、transcript、临时脚本。
-- **GC**:cleaning 例程按保留策略删有 `.done` 且超期的 run(几行 find,不单独成脚本),随后清 session 目录。
+- **GC**:cleaning 例程留最近 N 个(默认 20)有 `.done` 的 run、其余删(几行 find,不单独成脚本),随后清 session 目录。
 
 ### 1.6 没有 STATE 仪表盘文档
 状态不单立一个仪表盘文件:冷启动读 AGENTS(地图)+ architecture(现状)+ TODO(下一步)+ 相关 ADR 就够。各类状态各归其家——已冻契约 → ADR + architecture;候选 / 当前活跃 → TODO;悬而未决 → TODO 或 proposed 的 ADR;已知地雷 → **代码本地注释** + AGENTS 项目铁律。手抄进单一仪表盘只会与这些真源双写漂移。
@@ -105,7 +105,7 @@ planner   读 ADR → 读实况(grep/read 核实 file:line)
           → 派便宜 worker + 异构验收(run_worker.sh) → 读验收单拍板 + 按需看高危 diff
           → GO → 放行 commit;NO-GO → 打回重派;坏 WO/坏设计 → 报告用户 → 开新/改 ADR
 finishing 出总结/交棒(列未冻决定候选)+ 转写 session(决定在成熟当下就地冻,不在这儿)
-cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 归档 scratch + 死链核查
+cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 scratch + 死链核查
 ```
 
 ### 2.2 三档分诊(每个活先判,别高射炮打蚊子)
@@ -121,13 +121,12 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 归档 
 - **WO 意图行**(闸门3):每张 WO 顶部 `本单服务 → ADR-NNNN`,缺则派单 hook deny;用户扫这行拦跑偏。
 - **异构验收**(闸门4):worker 与 verifier 跨厂异构,verifier 审 diff-vs-WO **和** WO-vs-ADR(判据本身够不够)。
 
-### 2.4 每个组件的设计规范
-- **bs**:开工读 AGENTS§0 + memory + 相关 ADR/architecture。发散纪律(≥3 真不同、steelman、显式假设、失效模式、决策挂数据需求)。产出 `options.md` → 红队 → **著作 ADR**(意图 + 有把握的长期决定,记决策不记实现)→ 红队 → 交棒 planner。不搬真代码。不写代码、不出工单。
-- **planner**:开工读 AGENTS + 要动的 ADR + 相关代码实况。**读 ADR + 读实况 → 自己设计 HOW**(HOW 完整性是 planner 的活)。三档分诊。WO 瘦、指针不复述、判据尽量写成能跑绿的测试、顶部意图行。两阶段派单(执行 + 异构独立验收),**读验收单拍板**:看判定/判据逐条/判据外边界/WO判据体检/越界、自跑 pytest 复核;**碰契约 / 热路径的 WO,planner 必读那段 diff**(不是绝不读——只是不逐行通读无风险改动);验收单证据须机器可复核(引真行、跑真测试);**验收绑定不可变 revision**(commit/stash hash,防验收后代码又变)。坏 WO → 报告用户 → 开新/改 ADR(不绕过、不暗堆);实现中长出的长期决定就地冻(冻结前过单轮红队)。派 worker vs 自己写:有可验证判据边界清的派 worker;要设计/上下文重/无测试判据的(ADR、提示词)自己写。
-- **finishing**:① 出总结/交棒(≤10 行,下 session 冷启最小上下文;列本轮未冻决定的候选)→ ② 转写 session(最后跑,才含交棒)。决定的冻结不在这儿——在成熟当下由 bs/planner 就地冻(自带单轮红队)。文档维护全交 cleaning。
-- **cleaning**(Cursor 侧,fresh agent):读本 session transcript + 读仓交叉验证。维护 architecture.md / TODO / scratch / 死链。两条删除路径:机械易失项直接做;tracked 文件删除 / 搬迁走**候选清单→人 IDE 确认**。landmine 分层保护(`NO-GO`/`别翻案`/`已验证净负` 一律保留)。不著作决策、不改 ADR 正文。
-- **hooks**:`doc_guard`(PostToolUse,改 *.md 后跑 `check_docs --changed`,认 ADR frontmatter + architecture;有结构违规 / 断链就非阻塞注入警告,Claude 自判修不修);`check_wo_intent`(PreToolUse,派单前认 `本单服务 → ADR-NNNN` 意图行,缺则 deny;判不了的边界 fail-open **但打点自曝**,不静默兜底,§0.2)。
-- **scripts(3 主脚本 + 1 公共入口)**:① `run_worker.sh`(两阶段派单,模型/命令读 `workflow.env`,回 planner 只带验收单+token、不回 diff);② `check_docs.py`(ADR frontmatter/命名校验 + `ADR-NNNN` 存在性/断链,几十行,断链只认它);③ `transcribe_session.py`(session→压缩 transcript 喂 cleaning;压工具骨架、保 NL、软 token 顶);另 `call_agent.sh` 是外呼便宜 agent 的公共入口(worker / 验收 / 红队共用,只派发+落盘)。scratch GC 折进 cleaning 例程,不单独成脚本。
+### 2.4 每个组件的设计规范(HOW 的 SOT = `.claude/skills/*`,这里只记 why 层取舍)
+四角色 bs/planner/finishing/cleaning 的操作细节权威在各自 skill;本节只留不落在 skill 里的**设计取舍**:
+- **bs vs planner 分脑**:bs 发散(≥3 真不同 + 红队),planner 冻结脑 + 切 WO;同一强模型「出设计又派单」共同盲区不互查,故设两道异构红队 + 两道人审(§2.3)。
+- **验收员 ≠ worker 模型家族**:异构才是真独立第二双眼;高危双验收第二审尤其不能同家族。
+- **hooks 只两道、都非阻塞或 fail-open**:`doc_guard`(改 *.md 跑 check_docs,注入警告不阻塞)、`check_wo_intent`(派单前认意图行,判不了则 fail-open + 自曝,§0.2)——复用已有闸门,不新建守卫(§2.5)。
+- **scripts 3+1**:`run_worker.sh`(两阶段派单,只回验收单+token)、`check_docs.py`(ADR 结构/断链 canonical)、`transcribe_session.py`(session→压缩 transcript);`call_agent.sh` 是外呼公共入口。scratch GC 折进 cleaning,不单独成脚本。
 
 ### 2.5 强制机制(不靠纪律;背书三条结构律)
 - **著作不追加(律1)**:著作类文件(`decisions/`、`architecture.md`、`AGENTS.md`)**只 Claude 层动**,worker 授权写面只限代码 + scratchpad。**复用已有闸门4**:验收员/planner 红线核查——worker diff 若碰著作类文件 = 越界 NO-GO(用现成红线检查,**不新建 pre-write 守卫**;真频繁踩再加)。
@@ -155,6 +154,6 @@ hooks / 异构红队是**随任务调用的机制**(planner 按需升级),不是
 
 ## 4. 变更流程
 
-设计经两道异构红队(deepseek + luna)+ 用户签字冻结为 v1,地基级批评已折入上文。低概率项只作文档约束(§2.6),不建机制——工作流自己也遵守 §0 脊椎,不过度工程。
+设计初版经两道异构红队(当时用 deepseek + luna)+ 用户签字冻为 v1,地基级批评已折入上文。低概率项只作文档约束(§2.6),不建机制——工作流自己也遵守 §0 脊椎,不过度工程。
 
-**此后对工作流本身的改动,当作「关于工作流的 ADR」走**:先在 ADR 里定/改决策,再回来把本文同步到最新结论——本文只保留「现在的设计」,不在这儿开无限迭代、也不留改动流水账(那是 git 历史的活)。
+**此后对工作流本身的改动**:改 `workflow-kit/` 的 skills/hooks/scripts → `install.sh` 推项目;可运行 SOT = kit 文件,changelog = git 历史。本文只保留「现在为什么这么设计」,改完同步到最新结论即可,不留改动流水账。

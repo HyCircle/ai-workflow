@@ -1,16 +1,9 @@
 # 工单 WO-<ADR>-<N> — <一句话目标>
 
 <!--
-用法:planner 复制本模板 → scratchpad/PL-<id>/WO-current.md 填好 → 用户放行
-      → scripts/workflow/run_worker.sh scratchpad/PL-<id>/WO-current.md
-编号:WO 跟决策走 —— WO-<ADR 四位号>-<序号>,如 WO-0002-1(全局唯一自解释;见 /planner skill)。
-
-设计原则(为什么这么写,见 /planner skill):
-1. 出单前自己 grep/read **核实所有 file:line 锚点和常量/函数名**,别信记忆(§0④)。
-2. worker 已自动加载 AGENTS.md(§0 纪律)+ 全局准则;交付契约由派单脚本注入——这些**都别在工单里复述**。
-3. 工单只写「worker 靠自己推不出来的东西」:可验证的成功判据、红线、陷阱、该读哪几节。
-4. **成功判据尽量写成能跑到绿的测试**——让 worker 独立自循环,少来回。
-5. **别逐行口述实现**:给足契约+陷阱,红线内的实现交给 worker。只在「非显然 / 有坑 / 有硬性措辞要求」处才写具体做法。
+用法:复制 → scratchpad/PL-<id>/WO-current.md 填好 → 用户放行 → run_worker.sh。
+编号:WO-<ADR 四位号>-<序号>(如 WO-0002-1;跟决策走,全局唯一)。
+怎么写工单见 /planner skill;两条最易忘:① 出单前 grep/read 核实所有 file:line/常量名(§0④);② worker 已自动加载 AGENTS + 交付契约,别在工单里复述。
 -->
 
 ## 抬头
