@@ -8,7 +8,7 @@ description: Cursor/composer 侧的回溯性文档维护与清理。读本 sessi
 > **谁调用**:用户在 **Cursor IDE** 敲 `/cleaning`(Cursor 共享读 `.claude/skills/`)。**这是 Cursor 侧维护角色,Claude Code 不调它**——Claude 侧收尾只用 `/finishing`。你是没参与本轮施工的 fresh agent,冷读者可读性由你判最准。全程中文,只碰文档 / scratch,**不改代码 / 测试的内容**(死脚本的删除走路径 B 候选清单),**不改 `decisions/` 正文**(ADR 由 Claude 侧 bs/planner 著作、不可变)。
 
 ## 入口
-`/finishing` 已把本 session 转成 `scratchpad/<PL|BS>-<sessionid>/transcript.md`(`<sessionid>` = 完整 session UUID)。**先读它**知道本轮发生了什么,再**读仓交叉验证**(transcript 是有损压缩)。**找不到 transcript**(用户直接 `/cleaning`、或忘了先 `/finishing`)→ 别硬猜空跑:`ls scratchpad/` 列候选、问用户是哪个 session,拿不到就只做「读仓交叉验证」的机械项、停在需要 transcript 的判断型工作前。transcript 告诉你本 session 碰了什么,你也扫跨 session 累积的陈旧物——判断型删除都走候选清单,所以扫得宽是安全的。
+`/finishing` 已把本 session 转成 `scratchpad/<PL|BS>-<sessionid>/transcript.md`(`<sessionid>` = 完整 session UUID)。**先读它**知道本轮发生了什么,再**读仓交叉验证**(transcript 保留自然语言与工具骨架;tool_result 不收录,结论以仓内实况为准)。**找不到 transcript**(用户直接 `/cleaning`、或忘了先 `/finishing`)→ 别硬猜空跑:`ls scratchpad/` 列候选、问用户是哪个 session,拿不到就只做「读仓交叉验证」的机械项、停在需要 transcript 的判断型工作前。transcript 告诉你本 session 碰了什么,你也扫跨 session 累积的陈旧物——判断型删除都走候选清单,所以扫得宽是安全的。
 
 ## 你维护什么(新文档系统:一类信息一个家)
 - **architecture.md**(活地图/慢层):把本轮已落地的现状同步进去(模块边界/数据模型/关键不变量/对外契约/术语)。**architecture 从属 ADR**:任何具体不变量/契约的单一事实源是对应 ADR,architecture 只复述并指 `ADR-NNNN`,冲突时 ADR 赢。**只装慢层**(workflow.md §1.2)——纯重定向空壳 / 进度看板(归 TODO+git)/ 逐字复述 ADR 的段落,列候选清单删或蒸馏。

@@ -126,7 +126,7 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 
 - **bs vs planner 分脑**:bs 发散(≥3 真不同 + 红队),planner 冻结脑 + 切 WO;同一强模型「出设计又派单」共同盲区不互查,故设两道异构红队 + 两道人审(§2.3)。
 - **验收员 ≠ worker 模型家族**:异构才是真独立第二双眼;高危双验收第二审尤其不能同家族。
 - **hooks 只两道、都非阻塞或 fail-open**:`doc_guard`(改 *.md 跑 check_docs,注入警告不阻塞)、`check_wo_intent`(派单前认意图行,判不了则 fail-open + 自曝,§0.2)——复用已有闸门,不新建守卫(§2.5)。
-- **scripts 3+1**:`run_worker.sh`(两阶段派单,只回验收单+token)、`check_docs.py`(ADR 结构/断链 canonical)、`transcribe_session.py`(session→压缩 transcript);`call_agent.sh` 是外呼公共入口。scratch GC 折进 cleaning,不单独成脚本。
+- **scripts 3+1**:`run_worker.sh`(两阶段派单,只回验收单+token)、`check_docs.py`(ADR 结构/断链 canonical)、`transcribe_session.py`(session JSONL→markdown transcript);`call_agent.sh` 是外呼公共入口。scratch GC 折进 cleaning,不单独成脚本。
 
 ### 2.5 强制机制(不靠纪律;背书三条结构律)
 - **著作不追加(律1)**:著作类文件(`decisions/`、`architecture.md`、`AGENTS.md`)**只 Claude 层动**,worker 授权写面只限代码 + scratchpad。**复用已有闸门4**:验收员/planner 红线核查——worker diff 若碰著作类文件 = 越界 NO-GO(用现成红线检查,**不新建 pre-write 守卫**;真频繁踩再加)。

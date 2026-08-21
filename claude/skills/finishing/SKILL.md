@@ -21,7 +21,7 @@ $WF_PY scripts/workflow/transcribe_session.py --session <UUID> --out scratchpad/
 ```
 (`$WF_PY` 读 `.claude/workflow.env`,与 planner / 脚本同源;换项目只动那一处。)
 
-`--session` 必须是**完整 UUID**(脚本按 `<UUID>.jsonl` 精确匹配,截断即 not found)。脚本默认:压工具骨架(留 `[tool] Name({关键参数})`,丢 `[result]` 正文)、保全部自然语言、空 thinking 丢弃;approx-token 软顶(默认 100k),超顶只沿压缩梯子压工具噪声,对最新 NL / 交棒**禁止**静默硬截断。确定性、无 LLM、落盘前 best-effort 打码 secret;transcript 落 gitignored scratch、本地消费、随目录被 `/cleaning` 清除。脚本报错就把错贴给用户。
+`--session` 必须是**完整 UUID**(脚本按 `<UUID>.jsonl` 精确匹配)。脚本:保全部自然语言;tool_use 压成 `[tool] Name({关键参数})` 骨架、连续纯工具 Assistant 段合并、丢 tool_result 正文与空 thinking;确定性、无 LLM、落盘前 best-effort 打码 secret。transcript 落 gitignored scratch、本地消费、随目录被 `/cleaning` 清除。脚本报错就把错贴给用户。
 
 ## 交棒
 清理 / 维护在 Cursor IDE:用户敲 `/cleaning`,fresh agent 读 transcript + 读仓做维护(architecture / TODO / 死链 / scratch),人审 diff。
