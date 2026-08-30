@@ -9,11 +9,11 @@ description: 启动 Planner 角色。从冻结的 ADR 切工单(WO-<ADR>-<序号
 命令 / 模型档位一律读 `.claude/workflow.env`(`WF_TEST_CMD` / `WF_WORKER_MODEL` / `WF_REVIEW_MODEL` / `WF_REVIEW_MODEL_STRONG`),别在本页写死型号。
 
 ## 开工先读(冷启动就这些)
-`AGENTS.md`(§0 六条纪律 + 文档地图)→ `TODO.md`(下一步)→ 要动那批的 **ADR**(`decisions/NNNN-*.md`)+ `architecture.md` 相关节 → **读代码实况**(grep/read 核实 file:line)。别通读所有 ADR,按 TODO/需求只读相关的。
+`agent-discipline.md`(六条纪律)+ `AGENTS.md`(工具约定/文档地图)→ `TODO.md`(下一步)→ 要动那批的 **ADR**(`decisions/NNNN-*.md`)+ `architecture.md` 相关节 → **读代码实况**(grep/read 核实 file:line)。别通读所有 ADR,按 TODO/需求只读相关的。
 
 ## 出工单 ≠ 照抄 ADR——你对「ADR → 代码」的 HOW 完整性负责
 ADR 给**意图**(为什么/边界)+ **决策**(不变量 / 边界 / 不做,可配伪代码)。**ADR 冻的是决策**(不擅自推翻),但 **HOW + 真代码是你的活**:WO 的判据、陷阱、边界你写,ADR 没替你想周全的漏进 WO 就是 planner 的锅。派单前对每张 WO 自审:
-- **有全量数据时别凭记忆造分类器/枚举/前缀/阈值**。手边有离线表就从数据反推,判据配一个**跑全集的恒真探针**(断言对全集无漏),别抽样几例(§0④:代码+数据是 SSOT)。
+- **有全量数据时别凭记忆造分类器/枚举/前缀/阈值**。手边有离线表就从数据反推,判据配一个**跑全集的恒真探针**(断言对全集无漏),别抽样几例(纪律④:代码+数据是 SSOT)。
 - **主动找 ADR 没想到的失效模式/边界**,补进 WO「陷阱预判」或判据——像红队审自己的 WO。
 - **判据要能证伪**:尽量写成「bug 在时会红」的测试,而非「跑通即可」。
 
@@ -23,6 +23,7 @@ ADR 给**意图**(为什么/边界)+ **决策**(不变量 / 边界 / 不做,可�
 # 批评落盘供用户本 session 审阅;后端/模型取验收档。外呼走后台(run_in_background),派完即停别轮询
 scripts/workflow/call_agent.sh --mode read-only \
   --out scratchpad/PL-<id>/redteam-adr-NNNN.md \
+  --stream-log scratchpad/PL-<id>/redteam-adr-NNNN.log --timeout "${WF_TIMEOUT_REVIEW:-1200}" \
   "$WF_REVIEW_MODEL" \
   .claude/skills/bs/redteam-adr.md decisions/NNNN-<slug>.md
 ```
@@ -30,7 +31,7 @@ scripts/workflow/call_agent.sh --mode read-only \
 
 ### 顺序你做主,遇冲突提案
 - **冻结的是契约**(数据形状/硬上限/不做);**不冻结的是进攻顺序**——先做哪张单、怎么切是你的判断,按当前实况排。
-- 施工暴露 ADR 需改(契约有漏/自相矛盾/更好解法)→ **先报告用户**(§0纪律),**开新 ADR**(supersede 旧的,不改旧正文;设计债走设计审,不暗堆进 TODO)。别绕过 ADR 各干各的。
+- 施工暴露 ADR 需改(契约有漏/自相矛盾/更好解法)→ **先报告用户**(常驻纪律),**开新 ADR**(supersede 旧的,不改旧正文;设计债走设计审,不暗堆进 TODO)。别绕过 ADR 各干各的。
 
 ## 三档分诊(每个活先判,别高射炮打蚊子)
 | 档 | 什么活 | 怎么走 |
@@ -42,7 +43,7 @@ scripts/workflow/call_agent.sh --mode read-only \
 口诀:**判据能一句话说清、且改错了不伤别处 → 别写全工单**。一次性小修就直接在终端改代码——这就是琐碎档的正确用法。
 
 ## 工单顶部必写:意图对齐行(闸门3)
-每张 WO 顶部一行:`本单服务 → ADR-NNNN 的意图:<抄那句意图>`。用户放行时扫这一行就能拦跑偏的活。**缺这行 / 不指向 ADR-NNNN = `run_worker.sh` 入口直接拒派**(闸门在派单脚本入口,可移植到各 harness)。WO 跟决策走,编号 **WO-<ADR>-<序号>**(如 `WO-0002-1`,全局唯一自解释)。
+每张 WO 顶部一行:`本单服务 → ADR-NNNN 的意图:<抄那句意图>`(改工作流机制本身的单指 `workflow.md §N`——kit 的 durable 权威)。用户放行时扫这一行就能拦跑偏的活。**缺这行 / 不指向 ADR-NNNN 或 workflow.md = `run_worker.sh` 入口直接拒派**(闸门在派单脚本入口,可移植到各 harness;slug-ADR 不收——check_docs 无从核实存在性)。WO 跟决策走,编号 **WO-<ADR>-<序号>**(如 `WO-0002-1`,全局唯一自解释)。
 
 ## 一轮闭环
 0. **开工建本 session 的 scratch 目录**:`mkdir -p scratchpad/PL-<id>`(`<id>` = 你 scratchpad 路径里那段**完整 session UUID**,与 `/finishing` 转写的 `--session` 用同一个)。本 session 一切 scratch 产物(WO、临时脚本、disposition 记录)都落这目录。
@@ -70,11 +71,13 @@ scripts/workflow/call_agent.sh --mode read-only \
    | STATUS | 含义 | 你做什么 |
    |---|---|---|
    | `review_complete` | 无 blocking、机器事实全干净 | 看 nit 自曝清单(可选采纳)→ 亲验「需亲验的点」→ 放行 commit |
-   | `review_blocked` | 有 blocking ∨ pytest≠0 ∨ 越界 ∨ check_docs≠0 | 对每条 blocking 出 disposition;要修 → 收窄复审(见下 D4) |
+   | `review_blocked` | pytest≠0 ∨ 越界 ∨ check_docs≠0 ∨ ∃blocking | **分两路**:① 机器事实红(pytest/越界/check_docs)——无 finding 可裁,正解是**修码 → 重派**;② 语义 blocking——逐条出 disposition(修/驳回+理由/转 ADR),要修 → 收窄复审(D4)。看 derive 输出的「机器事实:」行判是哪路 |
    | `review_skipped` | SKIP_REVIEW,未自动放行 | 自己跑 `$WF_TEST_CMD` + 抽查后自行拍板 |
    | `infra_failed` | 报告解析失败 / CLI 失败 / 超时 | 看 `run.log` 定位,重派 |
 
-   机器事实(pytest / 越界 / check_docs)**脚本已亲产**,直接采信、不必自己复跑(越界:worker diff 碰 `decisions/·architecture.md·AGENTS.md` 著作类文件 = 脚本判越界);只在**碰契约/热路径**时亲看那段 diff,其余只看散文 body 列的「需亲验的点」。
+   `review_blocked` 是**信息态**——描述不可变事实(有 blocking / 机器事实红),**不随你出 disposition 翻转**(用户拍板「有 blocking 即 blocked」)。放行靠**你判所有 blocking 已裁决**,STATUS 保持 blocked 无妨(派生放行是给人读的信息态,不硬闸 commit)。它不是等你操作会变绿的状态机。
+   机器事实(pytest / 越界 / check_docs)**脚本已亲产**,直接采信、不必自己复跑(越界:worker diff 碰 `decisions/·architecture.md·AGENTS.md` 著作类文件 = 脚本判越界)。
+   **亲验哪些**:验收单 body 列的「需亲验的点」里,凡**碰契约 / 热路径 / 新写入面**的 → **必亲看那段 diff**(省不得);纯局部、判据已覆盖的点 → 读验收单即可。**跳过某个本该亲验的点**,记一行进 `dispositions.md`(`<run-id> 跳过亲验 <点> → 理由`)——跳过留痕才可核,别无声跳过。
 6. **裁决 blocking(D3,append-only、绑 revision)**:对每条 blocking 出 `修 / 驳回+非空理由 / 转 ADR`,记进 `scratchpad/PL-<id>/dispositions.md`(append-only,一行一条:`<run-id> <finding where> @rev<revision> → 驳回:<理由>`)。**驳回权归你**:每条驳回带非空理由、留 append-only 记录可复核。三种处置都算「已裁决」。**派生放行是信息态,不硬闸 commit**(solo commit 可逆);你判所有 blocking 已裁决即可放行。
 7. **复审 = 收窄的新派发(D4),无模型维护的跨轮状态**:要重验被修的 blocking → 同号加后缀 `WO-…b`,工单里标一节「复审:上一轮 open blocking:<逐条>」,要求验收员**逐条对新 revision 给证据判 resolved/still-present**。默认一轮,到软上限由你裁决。
 8. **用户决定** commit / 打回 / 下一张;坏 WO/坏设计 → 报告用户 → 开新/改 ADR。

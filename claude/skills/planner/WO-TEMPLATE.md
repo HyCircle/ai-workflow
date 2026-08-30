@@ -3,7 +3,7 @@
 <!--
 用法:复制 → scratchpad/PL-<id>/WO-current.md 填好 → 用户放行 → run_worker.sh。
 编号:WO-<ADR 四位号>-<序号>(如 WO-0002-1;跟决策走,全局唯一)。
-怎么写工单见 /planner skill;两条最易忘:① 出单前 grep/read 核实所有 file:line/常量名(§0④);② worker 已自动加载 AGENTS + 交付契约,别在工单里复述。
+怎么写工单见 /planner skill;两条最易忘:① 出单前 grep/read 核实所有 file:line/常量名(纪律④);② worker 派单时已附六条纪律 + 交付契约,别在工单里复述。
 -->
 
 ## 抬头

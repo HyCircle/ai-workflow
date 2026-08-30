@@ -25,7 +25,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]  # scripts/workflow/check_docs.py → 仓根
+def _repo_root() -> Path:
+    """消费项目的仓根 = git toplevel(按 cwd)。**不用 `__file__` parents**:symlink 共读时
+    本文件的真身在外部 kit repo,parents 会解析进 kit 而非消费项目,扫错仓。git toplevel 按
+    调用者 cwd(run_worker / pre-commit 都已 cd 进消费仓),symlink 与否都对。"""
+    r = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
+    )
+    if r.returncode == 0 and r.stdout.strip():
+        return Path(r.stdout.strip())
+    return Path(__file__).resolve().parents[2]  # 非 git 环境兜底
+
+
+ROOT = _repo_root()
 DECISIONS = ROOT / "decisions"
 
 VALID_STATUS = frozenset({"proposed", "accepted", "superseded", "deprecated"})

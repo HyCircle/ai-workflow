@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# run_worker.sh — 派单给便宜劳力(Cursor cursor-agent / Codex CLI)。两阶段:
+# run_worker.sh — 派单给便宜劳力(Cursor cursor-agent / Codex CLI)。四种模式(见下 env flag):
 #   ① 执行     :worker 改代码(不 commit),报告落 report.md
 #   ② 独立验收 :另一个 agent 结合 git diff 挑刺,产出结构化 findings(见 review-preamble.md)
-#                双验收时**两个验收员并行跑**(互无依赖:各读同一份已冻工作树、各写各的验收单)。
-#   回到 planner 的**只有**:STATUS + findings 摘要 + 机器事实 + 验收单 + git stat + token 用量。
+#                双验收时**两个验收员并行跑**(互无依赖:各读同一份已冻工作树、各写各的验收单);
+#                一员死(超时/空产出)但另一员产出可解析验收单 → 按存活者派生 + 自曝死者,不整轮报废。
+#   回到 planner 的**只有**:STATUS + findings 摘要(含 nit 自曝清单)+ 机器事实 + 验收单 + git stat + token 用量。
 #   派发统一走 call_agent.sh(worker=write、验收=read-only);本脚本只做编排。
+#   worker/验收 prompt 开头都会附上 agent-discipline.md(常驻六条纪律),不靠各 harness 的 AGENTS 自动加载。
 #
 # 用法:  scripts/workflow/run_worker.sh <工单文件> [执行模型] [审查模型] [审查模型2]
-#   环境变量 SKIP_REVIEW=1   : 跳过②(琐碎/小改分档用)。
+#   默认(无 env flag): ①执行 + ②施工审(第4参给第二审 = 双验收并行)。
+#   环境变量 SKIP_REVIEW=1   : 跳过②(琐碎/小改分档用);越界校验仍跑。
 #   环境变量 REVIEW_ONLY=1   : 跳过①,只对当前工作树跑②。与 SKIP_REVIEW 互斥。
 #   环境变量 WO_REVIEW=1     : 跳过①,只跑 WO 审(wo-review-preamble),无 pytest/越界/check_docs 机器事实。
 #   环境变量 RUN_WORKER_INTENT_CHECK_ONLY=1 : 仅校验工单意图行后退出(测试桩)。
@@ -52,8 +55,11 @@ _check_wo_intent () {
     echo "✗ 闸门:工单 $wo_file 缺「本单服务 → ADR-…」意图对齐行" >&2
     return 1
   fi
-  if ! printf '%s' "$intent" | grep -qE 'ADR-([0-9]{4}|[a-z0-9][a-z0-9-]*)'; then
-    echo "✗ 闸门:工单 $wo_file 的「本单服务」意图行未指向具体 ADR" >&2
+  # 只接受可核对存在性的 durable 决策锚:产品单指 ADR-NNNN(check_docs 能验断链);
+  # kit 自身工作指 workflow.md(kit 的 durable 设计权威,恒在)。slug-ADR 曾被接受但 check_docs
+  # 无从核实 → 闸门退化成格式检查,故不再接受。
+  if ! printf '%s' "$intent" | grep -qE 'ADR-[0-9]{4}|workflow\.md'; then
+    echo "✗ 闸门:工单 $wo_file 的「本单服务」意图行未指向 ADR-NNNN 或 workflow.md" >&2
     return 1
   fi
   return 0
@@ -86,7 +92,15 @@ TIMEOUT_WORKER="${WF_TIMEOUT_WORKER:-1800}"
 TIMEOUT_REVIEW="${WF_TIMEOUT_REVIEW:-1200}"
 TIMEOUT_TEST="${WF_TIMEOUT_TEST:-600}"
 
-_expand_preamble () { sed -e "s|__TEST_CMD__|${WF_TEST_CMD:-uv run pytest}|g" -e "s|__PY__|${WF_PY:-uv run python}|g" "$1" > "$2"; }
+# 展开 preamble:开头附常驻六条纪律(不靠各 harness 的 AGENTS 自动加载,直接注进 prompt),再接 preamble 正文。
+_expand_preamble () {
+  : > "$2"
+  if [ -f "$ROOT/agent-discipline.md" ]; then
+    cat "$ROOT/agent-discipline.md" >> "$2"
+    printf '\n\n' >> "$2"
+  fi
+  sed -e "s|__TEST_CMD__|${WF_TEST_CMD:-uv run pytest}|g" -e "s|__PY__|${WF_PY:-uv run python}|g" "$1" >> "$2"
+}
 EXEC_PREAMBLE="${RUN_DIR}/exec-preamble.md"
 REVIEW_PREAMBLE_X="${RUN_DIR}/review-preamble.md"
 WO_REVIEW_PREAMBLE_X="${RUN_DIR}/wo-review-preamble.md"
@@ -97,6 +111,8 @@ else
   _expand_preamble "$WO_REVIEW_PREAMBLE" "$WO_REVIEW_PREAMBLE_X"
 fi
 
+# revision = 验收对象树的不可变快照 hash(含 untracked)。**必须在 worker 改完后算**——否则
+# hash 的是派单前的树(不含 worker 改动),审计/复审绑的 revision 名不副实。WO 审无代码,hash 工单内容。
 _compute_revision () {
   if [ "${WO_REVIEW:-0}" = "1" ]; then
     sha256sum "$WO" | awk '{print substr($1,1,12)}'
@@ -112,14 +128,11 @@ _compute_revision () {
   fi
 }
 
-REVISION="$(_compute_revision)"
-
 RO_LABEL=""
 [ "${REVIEW_ONLY:-0}" = "1" ] && RO_LABEL="  (REVIEW_ONLY=1,跳过执行)"
 [ "${WO_REVIEW:-0}" = "1" ] && RO_LABEL="  (WO_REVIEW=1,工单审)"
 {
   echo "▶ 派单     : $WO"
-  echo "▶ revision : $REVISION"
   if [ "${WO_REVIEW:-0}" = "1" ]; then
     echo "▶ 模式     : WO 审(只读)"
   else
@@ -166,6 +179,9 @@ if [ "${WO_REVIEW:-0}" != "1" ]; then
   done < <(git status --porcelain)
 fi
 
+# revision 在 worker 改完后算(见 _compute_revision 注释):hash 的是验收员实际看的那棵树。
+REVISION="$(_compute_revision)"
+
 # pytest + check_docs(施工审路径)
 PYTEST_RC=0
 PYTEST_OUT=""
@@ -203,18 +219,22 @@ for i in "${!REVIEW_MODELS[@]}"; do
 done
 
 REVIEW_RC_ECHO=""
+REVIEW_FAIL_COUNT=0
 for i in "${!REVIEW_MODELS[@]}"; do
   rm="${REVIEW_MODELS[$i]}"; rfile="${REVIEW_FILES[$i]}"
   wait "${REVIEW_PIDS[$i]}"; rrc=$?
   rtok="$(cat "${rfile}.tok" 2>/dev/null)"
   REVIEW_RC_ECHO+="验收$((i+1))($rm) 退出码: $rrc  ${rtok}"$'\n'
-  if [ "$rrc" -ne 0 ]; then
-    CLI_FAILED=1
-  elif [ ! -f "$rfile" ]; then
-    CLI_FAILED=1
-    REVIEW_RC_ECHO+="验收$((i+1))($rm) 未产出 $rfile"$'\n'
+  if [ "$rrc" -ne 0 ] || [ ! -f "$rfile" ]; then
+    REVIEW_FAIL_COUNT=$((REVIEW_FAIL_COUNT + 1))
+    [ -f "$rfile" ] || REVIEW_RC_ECHO+="验收$((i+1))($rm) 未产出 $rfile"$'\n'
   fi
 done
+# 只有**全部**验收员都失败(单验收即该员)才整轮 infra_failed;部分失败(双验收里死一个)不报废——
+# 全部 REVIEW_FILES 都交给 derive,它把空/缺的判为 dead、按存活者派生并自曝(§0.2 安全降级 + 自曝)。
+if [ "${#REVIEW_MODELS[@]}" -gt 0 ] && [ "$REVIEW_FAIL_COUNT" -eq "${#REVIEW_MODELS[@]}" ]; then
+  CLI_FAILED=1
+fi
 
 # 派生 STATUS
 DERIVE_ARGS=(--skip-review "${SKIP_REVIEW:-0}" --pytest-rc "$PYTEST_RC" --overreach "$OVERREACH" --check-docs-rc "$CHECK_DOCS_RC" --cli-failed "$CLI_FAILED")
@@ -266,5 +286,7 @@ sed -i \
 if printf '%s' "$STATUS_LINE" | grep -q 'infra_failed'; then
   exit 2
 fi
+# .done = 「产物已定、可被 /cleaning 按龄 GC」的标记,**不是放行判定**——放行状态看 STATUS(complete/blocked/skipped)。
+# blocked 也落 .done(产物已定):它按龄回收,durable 审计痕迹在 dispositions.md + git,不在 ephemeral run 目录。
 touch "$RUN_DIR/.done"
 exit 0

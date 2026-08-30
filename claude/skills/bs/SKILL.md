@@ -8,7 +8,7 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 你戴上 **BS 帽**(用完摘):对一个设计问题**发散**,不收敛、不写代码、不出工单。全程用清晰易懂的中文回复。
 
 ## 开工先读
-`AGENTS.md`(§0 六条纪律 + 文档地图)、你的 memory、问题相关的 **ADR**(`decisions/NNNN-*.md`)与 `architecture.md` 现状。**只读相关那几个 ADR**,别通读所有决策(省 context;冷启动顺序见 AGENTS 文档地图)。
+`agent-discipline.md`(六条纪律)+ `AGENTS.md`(工具约定/文档地图)、你的 memory、问题相关的 **ADR**(`decisions/NNNN-*.md`)与 `architecture.md` 现状。**只读相关那几个 ADR**,别通读所有决策(省 context;冷启动顺序见 AGENTS 文档地图)。
 
 ## 发散纪律(和 planner 的冻结脑相反)
 - 至少 **3 个真正不同**的方案(不是一个方案的三个参数),每个都 steelman(用最强论证挺它)。
@@ -31,6 +31,7 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 # 批评落成 redteam-options.md(供你吸收、供用户本 session 审阅)。
 scripts/workflow/call_agent.sh --mode read-only \
   --out scratchpad/BS-<id>/redteam-options.md \
+  --stream-log scratchpad/BS-<id>/redteam-options.log --timeout "${WF_TIMEOUT_REVIEW:-1200}" \
   "$WF_REVIEW_MODEL" \
   .claude/skills/bs/redteam-options.md scratchpad/BS-<id>/options.md
 ```
@@ -47,6 +48,7 @@ scripts/workflow/call_agent.sh --mode read-only \
 ```bash
 scripts/workflow/call_agent.sh --mode read-only \
   --out scratchpad/BS-<id>/redteam-adr-NNNN.md \
+  --stream-log scratchpad/BS-<id>/redteam-adr-NNNN.log --timeout "${WF_TIMEOUT_REVIEW:-1200}" \
   "$WF_REVIEW_MODEL" \
   .claude/skills/bs/redteam-adr.md decisions/NNNN-<slug>.md
 ```

@@ -31,6 +31,18 @@ _assert () {
 
 _none () { printf '%s\n' '<<<FINDINGS-NONE>>>' > "$1"; }
 
+_empty () { printf '   \n\n' > "$1"; }   # 空/纯空白 = 验收员死(超时落空文件)
+
+_nit () {
+  cat > "$1" <<'EOF'
+<<<FINDING
+severity: nit
+where: test:9
+claim: 措辞可改
+FINDING>>>
+EOF
+}
+
 _blocking () {
   cat > "$1" <<'EOF'
 <<<FINDING
@@ -121,6 +133,39 @@ fi
 f11="$TMP/r11.md"; _unclosed "$f11"
 _assert "11 未闭合块→infra_failed" infra_failed 2 \
   --review "$f11" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0
+
+# 12 — 双验收一死(空)一活(blocking):按存活者派生 review_blocked,不 infra_failed
+f12a="$TMP/r12a.md"; f12b="$TMP/r12b.md"; _empty "$f12a"; _blocking "$f12b"
+out12="$("$DERIVE" --review "$f12a" --review "$f12b" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0 2>&1)" || rc12=$?
+rc12=${rc12:-0}
+got12="$(printf '%s\n' "$out12" | grep '^STATUS:' | head -1 | awk '{print $2}')"
+if [ "$got12" = "review_blocked" ] && [ "$rc12" -eq 0 ] && printf '%s\n' "$out12" | grep -q '空/缺失'; then
+  echo "✓ 12 双验收死一个→按存活者 review_blocked+自曝: STATUS=$got12 rc=$rc12"
+  PASS=$((PASS + 1))
+else
+  echo "✗ 12: 期望 review_blocked rc=0 含自曝, 实得 STATUS=$got12 rc=$rc12"
+  printf '%s\n' "$out12"
+  FAIL=$((FAIL + 1))
+fi
+
+# 13 — 单验收死(空):全 dead → infra_failed(无结论)
+f13="$TMP/r13.md"; _empty "$f13"
+_assert "13 单验收空(全dead)→infra_failed" infra_failed 2 \
+  --review "$f13" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0
+
+# 14 — 纯 nit:review_complete + nit 自曝清单
+f14="$TMP/r14.md"; _nit "$f14"
+out14="$("$DERIVE" --review "$f14" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0 2>&1)" || rc14=$?
+rc14=${rc14:-0}
+got14="$(printf '%s\n' "$out14" | grep '^STATUS:' | head -1 | awk '{print $2}')"
+if [ "$got14" = "review_complete" ] && [ "$rc14" -eq 0 ] && printf '%s\n' "$out14" | grep -q 'nit 自曝清单'; then
+  echo "✓ 14 纯 nit→review_complete+自曝清单: STATUS=$got14 rc=$rc14"
+  PASS=$((PASS + 1))
+else
+  echo "✗ 14: 期望 review_complete rc=0 含 nit 清单, 实得 STATUS=$got14 rc=$rc14"
+  printf '%s\n' "$out14"
+  FAIL=$((FAIL + 1))
+fi
 
 echo "── 合计: $PASS 通过, $FAIL 失败 ──"
 [ "$FAIL" -eq 0 ]

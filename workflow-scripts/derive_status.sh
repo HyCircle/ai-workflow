@@ -28,7 +28,9 @@ done
 # shellcheck disable=SC2034
 BLOCKING_COUNT=0
 NIT_COUNT=0
+NIT_LIST=()
 SELF_EXPOSE=()
+DEAD_FILES=()
 PARSE_OK=1
 
 _field_val () {
@@ -111,6 +113,7 @@ _parse_one_review () {
       BLOCKING_COUNT=$((BLOCKING_COUNT + 1))
     elif [ "$sev" = "nit" ]; then
       NIT_COUNT=$((NIT_COUNT + 1))
+      NIT_LIST+=("$file: ${where:-?} — ${claim:-?}")
     else
       SELF_EXPOSE+=("$file: 未知 severity='$sev',安全降级按 blocking 计")
       BLOCKING_COUNT=$((BLOCKING_COUNT + 1))
@@ -130,8 +133,20 @@ if [ "$SKIP_REVIEW" != "1" ]; then
     echo "自曝: 未跳过验收但无验收单路径" >&2
   else
     for rf in "${REVIEW_FILES[@]}"; do
+      # dead = 缺文件 或 空/纯空白(验收员超时被杀 → call_agent 落空文件)。dead ≠ unparseable:
+      # 有其他存活验收员时按存活者派生 + 自曝;**全 dead** 才 infra_failed(无结论)。
+      # 有内容但无标记/未闭合 = unparseable(可能藏 blocking)→ 仍 PARSE_OK=0 硬 infra_failed(§0.2)。
+      if [ ! -f "$rf" ] || ! grep -q '[^[:space:]]' "$rf" 2>/dev/null; then
+        DEAD_FILES+=("$rf")
+        SELF_EXPOSE+=("验收单 $rf 空/缺失(验收员疑超时被杀);有存活验收员则仅按存活者派生")
+        continue
+      fi
       _parse_one_review "$rf" || true
     done
+    if [ "$PARSE_OK" = "1" ] && [ "${#DEAD_FILES[@]}" -eq "${#REVIEW_FILES[@]}" ]; then
+      PARSE_OK=0
+      SELF_EXPOSE+=("全部验收员均无有效产出 → 无验收结论")
+    fi
   fi
 fi
 
@@ -153,6 +168,10 @@ fi
 
 echo "STATUS: $STATUS"
 echo "findings: blocking=$BLOCKING_COUNT nit=$NIT_COUNT"
+if [ "${#NIT_LIST[@]}" -gt 0 ]; then
+  echo "nit 自曝清单(不挡放行,planner 可选采纳):"
+  for n in "${NIT_LIST[@]}"; do echo "  · $n"; done
+fi
 echo "机器事实: pytest_rc=$PYTEST_RC overreach=$OVERREACH check_docs_rc=$CHECK_DOCS_RC skip_review=$SKIP_REVIEW"
 for msg in "${SELF_EXPOSE[@]}"; do echo "自曝: $msg"; done
 exit 0
