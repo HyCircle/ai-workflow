@@ -11,7 +11,8 @@ ADR 让检查大幅变简单:决策活在 `decisions/NNNN-slug.md`,引用写 `AD
 
 用法:
     uv run python scripts/workflow/check_docs.py            # 全仓
-    uv run python scripts/workflow/check_docs.py --changed  # 只检本轮 git 改动(验收/hook 用)
+    uv run python scripts/workflow/check_docs.py --changed  # 只检本轮 git 改动(验收用)
+    uv run python scripts/workflow/check_docs.py --staged   # 只检 index 待提交 blob(pre-commit 用)
 
 退出码:有违规 → 1,干净 → 0。
 """
@@ -74,6 +75,25 @@ def _changed_files() -> set[Path]:
     return out
 
 
+def _staged_files() -> set[Path]:
+    out: set[Path] = set()
+    for line in _git_lines(["git", "diff", "--cached", "--name-only"]):
+        out.add((ROOT / line).resolve())
+    return out
+
+
+def _staged_blob(rel: str) -> str | None:
+    res = subprocess.run(
+        ["git", "show", f":{rel}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if res.returncode != 0:
+        return None
+    return res.stdout
+
+
 def _existing_adr_ids() -> set[str]:
     """现存 ADR 号:decisions/NNNN-slug.md 或 decisions/NNNN-slug/(文件夹形)。"""
     ids: set[str] = set()
@@ -102,14 +122,14 @@ def _adr_main_files() -> list[Path]:
     return out
 
 
-def check_adr_frontmatter(path: Path) -> list[tuple[str, int, str]]:
+def check_adr_frontmatter(path: Path, *, content: str | None = None) -> list[tuple[str, int, str]]:
     """校验单个 ADR:frontmatter.id 与文件名 NNNN 一致 + status 在枚举内。"""
     rel = str(path.relative_to(ROOT))
     stem = path.stem
     m = _FILENAME_RE.match(stem)
     fname_id = m.group(1) if m else None
 
-    lines = path.read_text(encoding="utf-8").splitlines()
+    lines = (content if content is not None else path.read_text(encoding="utf-8")).splitlines()
     if not lines or lines[0].strip() != "---":
         return [(rel, 1, "ADR 缺 frontmatter(首行应为 ---)")]
 
@@ -134,17 +154,30 @@ def check_adr_frontmatter(path: Path) -> list[tuple[str, int, str]]:
     return v
 
 
-def find_dead_refs(changed_only: bool) -> list[tuple[str, str, list[str]]]:
+def find_dead_refs(changed_only: bool, staged_only: bool = False) -> list[tuple[str, str, list[str]]]:
     """`ADR-NNNN` 引用指向不存在的 ADR。"""
     ids = _existing_adr_ids()
-    scope = _changed_files() if changed_only else None
+    if staged_only:
+        scope = _staged_files()
+    elif changed_only:
+        scope = _changed_files()
+    else:
+        scope = None
     refs: dict[str, list[str]] = {}
     for p in _repo_text_files():
         if p.stem.endswith("-template"):
-            continue  # 模板是脚手架:其 ADR 号占位符不算真实引用
+            continue
         if scope is not None and p.resolve() not in scope:
             continue
-        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if staged_only and p.resolve() in scope:
+            rel = str(p.relative_to(ROOT))
+            blob = _staged_blob(rel)
+            if blob is None:
+                continue
+            lines = blob.splitlines()
+        else:
+            lines = p.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines, 1):
             for m in _REF_RE.finditer(line):
                 refs.setdefault(m.group(1), []).append(f"{p.relative_to(ROOT)}:{i}")
     return sorted((nnnn, "", locs) for nnnn, locs in refs.items() if nnnn not in ids)
@@ -152,19 +185,35 @@ def find_dead_refs(changed_only: bool) -> list[tuple[str, str, list[str]]]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--changed", action="store_true", help="只检查本轮 git 改动(验收/hook 用)")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--changed", action="store_true", help="只检查本轮 git 改动(验收用)")
+    mode.add_argument("--staged", action="store_true", help="只检查 index 待提交 blob(pre-commit 用)")
     args = ap.parse_args()
 
-    scope_label = "本轮改动" if args.changed else "全仓"
-    scope = _changed_files() if args.changed else None
+    if args.staged:
+        scope_label = "待提交(staged)"
+        scope = _staged_files()
+    elif args.changed:
+        scope_label = "本轮改动"
+        scope = _changed_files()
+    else:
+        scope_label = "全仓"
+        scope = None
     had_issue = False
 
-    # 1) ADR frontmatter/命名(全仓时校验所有 ADR;--changed 只校验改动到的 ADR)
+    # 1) ADR frontmatter/命名
     fm_violations: list[tuple[str, int, str]] = []
     for main_md in _adr_main_files():
         if scope is not None and main_md.resolve() not in scope:
             continue
-        fm_violations.extend(check_adr_frontmatter(main_md))
+        if args.staged:
+            rel = str(main_md.relative_to(ROOT))
+            blob = _staged_blob(rel)
+            if blob is None:
+                continue
+            fm_violations.extend(check_adr_frontmatter(main_md, content=blob))
+        else:
+            fm_violations.extend(check_adr_frontmatter(main_md))
     if fm_violations:
         had_issue = True
         print(f"ADR 结构检查({scope_label}):{len(fm_violations)} 处违规 ✗")
@@ -174,7 +223,7 @@ def main() -> int:
         print(f"ADR 结构检查({scope_label}):无违规 ✓")
 
     # 2) ADR-NNNN 断链
-    dead = find_dead_refs(args.changed)
+    dead = find_dead_refs(args.changed, staged_only=args.staged)
     if dead:
         had_issue = True
         print(f"ADR-NNNN 断链检查({scope_label}):{len(dead)} 处断链 ✗")

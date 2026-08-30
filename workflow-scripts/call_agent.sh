@@ -1,78 +1,138 @@
 #!/usr/bin/env bash
-# call_agent.sh — 外呼便宜 agent 的公共入口:把一段 prompt 派给外部 agent(cursor-agent / codex),
-#   捕获它的**文本输出**落盘到 <out文件>,回显 token 用量。**只做派发 + 落盘**,不做编排。
+# call_agent.sh — 外呼便宜 agent 的公共入口:流式 tee 进日志,最终报告落 --out;
+#   stdout 恒定只有「token 用量」一行(D7)。超时杀整棵进程树。
 #
-# 这是「Claude 外呼便宜 agent」的唯一通道,三类消费者共用它:
-#   ① run_worker.sh 的执行阶段(worker 施工,--mode write)
-#   ② run_worker.sh 的验收阶段(独立验收,--mode read-only,可并行多个)
-#   ③ bs/planner 的 red-team(冻结前审 options/ADR,--mode read-only)
-#   每个外部 agent 的回复都落成一个固定路径的 md,CC 只读那个 md;red-team 批评也就供本 session 审阅。
-#
-# 用法: call_agent.sh --mode <write|read-only> --out <文件> <后端/模型> <prompt文件...>
-#   --mode write     : worker 施工,可改工作树。
-#   --mode read-only : **意图**——验收/red-team 约定不改树。Cursor 有只读规划档(--mode ask)硬性强制;
-#                      Codex 无「能跑命令又禁改树」的档(-s read-only 会连 tmp/缓存/网络一并锁死,
-#                      验收跑不了测试)→ 与 write 同权限跑命令,不改树靠 preamble 约定 + 收尾 git status 兜。
-#   --out <文件>     : agent 的文本回复落这里 —— **这就是它的交付物**(报告/验收单/批评正文)。
-#   后端/模型        : 「cursor|codex/模型」,省前缀 = cursor。如 codex/deepseek-v4-flash。
-#   prompt文件...    : 依次 cat 拼成 prompt(如 preamble + 目标文件)。
-# 回显 stdout: 「token 用量: N」一行。返回码 = agent 退出码(找不到 CLI / 参数错 = 2/3)。
+# 用法: call_agent.sh --mode <write|read-only> --out <文件> [--stream-log <file>] [--timeout <秒>]
+#       <后端/模型> <prompt文件...>
 set -uo pipefail
 
-MODE="write"; OUT=""
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib_timeout.sh
+. "$SCRIPT_DIR/lib_timeout.sh"
+
+MODE="write"; OUT=""; STREAM_LOG=""; TIMEOUT_SEC=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --mode) MODE="${2:-}"; shift 2 ;;
     --out)  OUT="${2:-}";  shift 2 ;;
+    --stream-log) STREAM_LOG="${2:-}"; shift 2 ;;
+    --timeout) TIMEOUT_SEC="${2:-0}"; shift 2 ;;
     --) shift; break ;;
     *) break ;;
   esac
 done
 
 SPEC="${1:-}"; shift || true
-[ -n "$SPEC" ] || { echo "✗ 用法: call_agent.sh --mode <write|read-only> --out <文件> <后端/模型> <prompt文件...>" >&2; exit 2; }
+[ -n "$SPEC" ] || { echo "✗ 用法: call_agent.sh --mode <write|read-only> --out <文件> [--stream-log <file>] [--timeout <秒>] <后端/模型> <prompt文件...>" >&2; exit 2; }
 [ -n "$OUT" ]  || { echo "✗ 缺 --out <文件>" >&2; exit 2; }
 [ $# -ge 1 ]   || { echo "✗ 缺 prompt 文件" >&2; exit 2; }
 [ "$MODE" = "write" ] || [ "$MODE" = "read-only" ] || { echo "✗ --mode 只能是 write|read-only(收到 '$MODE')" >&2; exit 2; }
 
 case "$SPEC" in
   */*) BACKEND="${SPEC%%/*}"; MODEL="${SPEC#*/}" ;;
-  *)   BACKEND="cursor";       MODEL="$SPEC" ;;   # 省前缀 = cursor
+  *)   BACKEND="cursor";       MODEL="$SPEC" ;;
 esac
 
 PROMPT="$(cat "$@")"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-out=""; rc=0; usage=""
+text=""; rc=0; usage=""
+
+_redact_stream_log () {
+  local log="$1"
+  [ -n "$log" ] && [ -f "$log" ] || return 0
+  sed -i \
+    -e 's/sk-[a-zA-Z0-9_-]\{20,\}/[REDACTED]/g' \
+    -e 's/ghp_[a-zA-Z0-9]\{20,\}/[REDACTED]/g' \
+    -e 's/gho_[a-zA-Z0-9]\{20,\}/[REDACTED]/g' \
+    "$log" 2>/dev/null || true
+}
+
+_parse_stream_file () {
+  local accum="$1"
+  text=""
+  usage=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ -z "$line" ] && continue
+    if printf '%s' "$line" | jq -e '.result // .text // empty' >/dev/null 2>&1; then
+      t="$(printf '%s' "$line" | jq -r '.result // .text // empty' 2>/dev/null)"
+      [ -n "$t" ] && [ "$t" != "null" ] && text="$t"
+    fi
+    u="$(printf '%s' "$line" | jq -rc '.usage // empty' 2>/dev/null || true)"
+    [ -n "$u" ] && [ "$u" != "null" ] && usage="$u"
+  done < "$accum"
+  [ -n "$text" ] || text="$(cat "$accum")"
+}
+
+_run_cursor () {
+  local accum err_file apid pgid wd tailpid
+  accum="$(mktemp)"
+  err_file="$(mktemp)"
+
+  local -a mode_flags
+  if [ "$MODE" = "read-only" ]; then mode_flags=(--mode ask --trust); else mode_flags=(--force --trust); fi
+
+  # 在独立 session 起 agent(setsid → 成组长,便于杀整棵进程树)。流式写 accum 实文件、
+  # stderr 落 err_file——redirect 加在外层 setsid 上,参数经 "${@:3}" 原样传入不重排。
+  setsid bash -c 'exec cursor-agent -p "$1" --model "$2" "${@:3}" --output-format stream-json' \
+    _ "$PROMPT" "$MODEL" "${mode_flags[@]}" >"$accum" 2>"$err_file" &
+  apid=$!
+  pgid="$(ps -o pgid= -p "$apid" 2>/dev/null | tr -d ' ')"
+  [ -n "$pgid" ] || pgid="$apid"
+
+  # 实时把 accum tee 进 stream-log(唯一落点是日志文件;tail --pid 随 agent 结束自退)
+  tailpid=""
+  if [ -n "$STREAM_LOG" ]; then
+    tail -n +1 -f --pid="$apid" "$accum" >> "$STREAM_LOG" 2>/dev/null &
+    tailpid=$!
+  fi
+
+  # 超时看门狗:到点杀整棵进程组(TERM → 宽限 → KILL)
+  wd=""
+  if [ "$TIMEOUT_SEC" -gt 0 ] 2>/dev/null; then
+    ( sleep "$TIMEOUT_SEC"; kill -TERM "-$pgid" 2>/dev/null; sleep 3; kill -KILL "-$pgid" 2>/dev/null ) &
+    wd=$!
+  fi
+
+  wait "$apid" 2>/dev/null; rc=$?
+  [ -n "$wd" ] && { kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null || true; }
+  kill -KILL "-$pgid" 2>/dev/null || true   # 兜底清整组,防 agent 派生的孤儿
+  [ -n "$tailpid" ] && { wait "$tailpid" 2>/dev/null || true; }
+  [ "$rc" -gt 128 ] && rc=124               # 被信号杀(含超时)归一为 124
+
+  cat "$err_file" >&2
+  _parse_stream_file "$accum"
+  rm -f "$accum" "$err_file"
+}
 
 case "$BACKEND" in
   cursor)
     command -v cursor-agent >/dev/null || { echo "✗ 找不到 cursor-agent" >&2; exit 3; }
-    # read-only = --mode ask(只读规划,不改树);write = --force --trust(免交互放行,可改树)
-    if [ "$MODE" = "read-only" ]; then MODE_FLAGS=(--mode ask --trust); else MODE_FLAGS=(--force --trust); fi
-    ERR="$(mktemp)"
-    out="$(cursor-agent -p "$PROMPT" --model "$MODEL" "${MODE_FLAGS[@]}" --output-format json 2>"$ERR")"; rc=$?
-    cat "$ERR" >&2   # CLI stderr 交回上层日志(run_worker 的 2>>LOG 收走),不静默吞(§0.2)
-    rm -f "$ERR"
-    # cursor json:文本在 .result,token 在 .usage
-    text="$(printf '%s' "$out" | jq -r '.result // .text // .message // empty' 2>/dev/null)"
-    [ -n "$text" ] || text="$out"   # 解析不出就落原始输出,别静默丢产物
-    usage="$(printf '%s' "$out" | jq -rc '.usage // empty' 2>/dev/null || true)"
+    _run_cursor
     ;;
   codex)
     command -v codex >/dev/null || { echo "✗ 找不到 codex" >&2; exit 3; }
-    # 两档都走 bypass(机器本就是可信单机,worker 也这么跑)。Codex 没有「能跑命令又禁改树」的档:
-    # -s read-only 会把 tmp/工具链缓存/loopback 网络一并锁死,验收连 uv/pytest 都跑不了、空耗 token。
-    # read-only 的「不改树」是约定,靠 review-preamble + 收尾 git status 兜,不靠 OS 沙箱。
-    ERR="$(mktemp)"
-    out="$(printf '%s' "$PROMPT" | codex exec --dangerously-bypass-approvals-and-sandbox -m "$MODEL" -C "$ROOT" 2>"$ERR")"; rc=$?
-    cat "$ERR" >&2   # CLI stderr 交回上层日志,不静默吞(§0.2)
-    text="$out"
-    # codex plain 输出的「tokens used\n<数字>」可能落 stdout 或 stderr,两处都试同一解析
-    usage="$(printf '%s\n%s' "$out" "$(cat "$ERR")" | awk '/tokens used/{getline; gsub(/^ +/,""); print; exit}')"
-    rm -f "$ERR"
+    accum="$(mktemp)"
+    err_file="$(mktemp)"
+    if [ "$TIMEOUT_SEC" -gt 0 ] 2>/dev/null; then
+      run_with_timeout "$TIMEOUT_SEC" bash -c 'printf "%s" "$1" | codex exec --dangerously-bypass-approvals-and-sandbox -m "$2" -C "$3" 2>"$4"' \
+        _ "$PROMPT" "$MODEL" "$ROOT" "$err_file" >"$accum"
+      rc=$?
+    else
+      printf '%s' "$PROMPT" | codex exec --dangerously-bypass-approvals-and-sandbox -m "$MODEL" -C "$ROOT" 2>"$err_file" >"$accum"
+      rc=$?
+    fi
+    # codex 分支为收束后一次性落 stream-log(非实时);cursor 分支实时 tee。
+    # 满足 D7 铁律(流只落日志、不上 stdout);实时观测仅 cursor 有,codex 靠收尾落盘事后查。
+    [ -n "$STREAM_LOG" ] && cat "$accum" >> "$STREAM_LOG"
+    cat "$err_file" >&2
+    text="$(cat "$accum")"
+    usage="$(printf '%s\n%s' "$text" "$(cat "$err_file")" | awk '/tokens used/{getline; gsub(/^ +/,""); print; exit}')"
+    rm -f "$accum" "$err_file"
     ;;
   *) echo "✗ 未知后端: $BACKEND(只支持 cursor|codex)" >&2; exit 3 ;;
 esac
+
+[ -n "$STREAM_LOG" ] && _redact_stream_log "$STREAM_LOG"
 
 mkdir -p "$(dirname "$OUT")"
 printf '%s\n' "$text" > "$OUT"
