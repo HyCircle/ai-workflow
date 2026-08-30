@@ -101,9 +101,11 @@ bs        发散(≥3 真不同方案,各 steelman+失效模式) → 异构红�
    ↓ 交棒
 planner   读 ADR → 读实况(grep/read 核实 file:line)
           → 设计 HOW(实现中长出的长期决定 → 就地单轮红队 + 冻结)
-          → 切 WO-<ADR>-<序号>(顶部意图行「本单服务 → ADR-NNNN」)→ 用户放行
-          → 派便宜 worker + 异构验收(run_worker.sh) → 读验收单拍板 + 按需看高危 diff
-          → GO → 放行 commit;NO-GO → 打回重派;坏 WO/坏设计 → 报告用户 → 开新/改 ADR
+          → 切 WO-<ADR>-<序号>(顶部意图行「本单服务 → ADR-NNNN」)
+          → WO 审(WO_REVIEW=1,派 worker 前审工单质量)→ 裁决 blocking → 用户放行
+          → 派便宜 worker + 异构施工审(run_worker.sh)→ 读 STATUS 四态 + findings 拍板 + 按需看高危 diff
+          → 对每条 blocking 出 disposition(修/驳回+理由/转 ADR,append-only 绑 revision)
+          → 都裁决且机器事实干净 → 放行 commit;要修 → 收窄复审 WO-…b;坏 WO/坏设计 → 报告用户 → 开新/改 ADR
 finishing 出总结/交棒(列未冻决定候选)+ 转写 session(决定在成熟当下就地冻,不在这儿)
 cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 scratch + 死链核查
 ```
@@ -118,19 +120,22 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 
 ### 2.3 闸门(异构 + 人审,堵同源盲区)
 - **人审意图层**(闸门1):bs 把各 ADR 意图行聚一屏给用户,他有产品意图,一屏否掉不合理设计。
 - **红队 ADR**(闸门2):**任何 ADR 冻结前**,交异构只读模型审一遍(单轮)——契约自洽、判据能证伪、没搬真代码、没为不存在的边缘写东西。bs 冻在纸面、动工前;planner 冻在实现里决定成熟的当下。
-- **WO 意图行**(闸门3):每张 WO 顶部 `本单服务 → ADR-NNNN`,缺则派单 hook deny;用户扫这行拦跑偏。
-- **异构验收**(闸门4):worker 与 verifier 跨厂异构,verifier 审 diff-vs-WO **和** WO-vs-ADR(判据本身够不够)。
+- **WO 意图行**(闸门3):每张 WO 顶部 `本单服务 → ADR-NNNN`,缺则 `run_worker.sh` 入口拒派(闸门在脚本里,不绑 harness hook);用户扫这行拦跑偏。
+- **异构验收**(闸门4):worker 与 verifier 跨厂异构;**拆两专项**——WO 审(派 worker 前审 WO-vs-ADR)+ 施工审(派 worker 后审 diff-vs-WO,经 diff 暴露的 WO 缺陷仍可报)。verifier 只提交结构化 findings,放行状态由脚本纯派生(§2.5)。
 
 ### 2.4 每个组件的设计规范(HOW 的 SOT = `.claude/skills/*`,这里只记 why 层取舍)
 四角色 bs/planner/finishing/cleaning 的操作细节权威在各自 skill;本节只留不落在 skill 里的**设计取舍**:
 - **bs vs planner 分脑**:bs 发散(≥3 真不同 + 红队),planner 冻结脑 + 切 WO;同一强模型「出设计又派单」共同盲区不互查,故设两道异构红队 + 两道人审(§2.3)。
 - **验收员 ≠ worker 模型家族**:异构才是真独立第二双眼;高危双验收第二审尤其不能同家族。
-- **hooks 只两道、都非阻塞或 fail-open**:`doc_guard`(改 *.md 跑 check_docs,注入警告不阻塞)、`check_wo_intent`(派单前认意图行,判不了则 fail-open + 自曝,§0.2)——复用已有闸门,不新建守卫(§2.5)。
-- **scripts 3+1**:`run_worker.sh`(两阶段派单,只回验收单+token)、`check_docs.py`(ADR 结构/断链 canonical)、`transcribe_session.py`(session JSONL→markdown transcript);`call_agent.sh` 是外呼公共入口。scratch GC 折进 cleaning,不单独成脚本。
+- **闸门在动作处,单实现、可移植**:意图行校验在 `run_worker.sh` 派单入口、著作类文件越界校验在 worker 执行之后(跳过验收也跑)、文档结构校验在 git `pre-commit`(校验 index 待提交内容)。**同一逻辑单实现**(一处触发,不在 hook 与脚本各写一份),移植到无 PreToolUse/PostToolUse 的 Cursor/Codex 时闸门照在。
+- **scripts 3+1 + 1 git hook**:`run_worker.sh`(两阶段派单;内化意图/越界闸门;把放行状态**对不可变输入纯派生**成一个 `STATUS:` 四态字段,退出码只有 `infra_failed` 非零;外呼流式只落 run.log)、`check_docs.py`(ADR 结构/断链 canonical,`--changed` 看工作树 / `--staged` 看 index blob)、`transcribe_session.py`(session JSONL→markdown transcript);`call_agent.sh` 是外呼公共入口(CLI 原生流式 + 分角色超时杀整树)。git `pre-commit` 跑 `check_docs --staged`。scratch GC 折进 cleaning,不单独成脚本。
 
 ### 2.5 强制机制(不靠纪律;背书三条结构律)
-- **著作不追加(律1)**:著作类文件(`decisions/`、`architecture.md`、`AGENTS.md`)**只 Claude 层动**,worker 授权写面只限代码 + scratchpad。**复用已有闸门4**:验收员/planner 红线核查——worker diff 若碰著作类文件 = 越界 NO-GO(用现成红线检查,**不新建 pre-write 守卫**;真频繁踩再加)。
-- **验收可信(闸门4)**:验收绑定**不可变 revision**;**验收员跨厂 ≠ worker**(强审尤其不能和 worker 同属一厂,否则跨厂异构名存实亡);证据机器可复核。
+- **著作不追加(律1)**:著作类文件(`decisions/`、`architecture.md`、`AGENTS.md`)**只 Claude 层动**,worker 授权写面只限代码 + scratchpad。越界校验**由 `run_worker.sh` 在 worker 执行后亲跑**(跳过验收也跑),产出机器事实喂进放行派生。
+- **验收可信 = 判定不由模型持有(闸门4)**:验收模型**只写它有权威的东西**(结构化 findings:发现了什么);身份 / 机器事实(pytest·越界·check_docs)/ 最终放行状态一律由 `run_worker.sh` 按一条可计算式**从不可变输入纯派生**成四态(`review_complete|blocked|skipped|infra_failed`)。**一个判定源**——机器事实脚本亲产、放行状态脚本派生、退出码只 `infra_failed` 非零,planner 直读验收报告不再转述。**验收员跨厂 ≠ worker**;revision stamp 成含 untracked 的不可变快照供复核。
+  - **finding 结构 = sentinel 块**(每条 `<<<FINDING…FINDING>>>`,字段各占一行、值可含冒号引号、无嵌套转义):E5 实测 sentinel/jsonl 干净率 100%、yaml-fence 50%(整块 ScannerError),sentinel 再以「无转义负担 + 人读性」破 jsonl 的平局。冻语义(severity/where/claim/failure_scenario;blocking 须指名具体错误结果,否则为 nit)+ 这个语法;坏一块只跳一块。
+- **planner 只裁决不转述(D3)**:放行状态是**信息态,不硬闸 commit**(solo commit 可逆,裁量权归 planner);planner 对每条 blocking 出 append-only、绑 revision 的 disposition(修/驳回+理由/转 ADR),驳回带理由、留痕可核。
+- **验收拆两专项(D5)**:WO 审(派 worker 前,只读 WO+ADR)+ 施工审(派 worker 后,diff-vs-WO);坏 WO 在派 worker 前拦下。复审 = 收窄的新派发、逐条闭合上轮 blocking(D4),无模型维护的跨轮状态。
 - **闸门加深不加数**:与其多盖章,不如让保留的那道真看——planner 对契约/热路径**看 diff**(§2.4),别只扫意图行。
 
 ### 2.6 轻量约束(solo 低概率,只文档约定、不建机制)

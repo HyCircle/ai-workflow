@@ -42,30 +42,42 @@ scripts/workflow/call_agent.sh --mode read-only \
 口诀:**判据能一句话说清、且改错了不伤别处 → 别写全工单**。一次性小修就直接在终端改代码——这就是琐碎档的正确用法。
 
 ## 工单顶部必写:意图对齐行(闸门3)
-每张 WO 顶部一行:`本单服务 → ADR-NNNN 的意图:<抄那句意图>`。用户放行时扫这一行就能拦跑偏的活。**缺这行 / 不指向 ADR-NNNN = 派单 hook(check_wo_intent)会 deny**。WO 跟决策走,编号 **WO-<ADR>-<序号>**(如 `WO-0002-1`,全局唯一自解释)。
+每张 WO 顶部一行:`本单服务 → ADR-NNNN 的意图:<抄那句意图>`。用户放行时扫这一行就能拦跑偏的活。**缺这行 / 不指向 ADR-NNNN = `run_worker.sh` 入口直接拒派**(闸门在派单脚本入口,可移植到各 harness)。WO 跟决策走,编号 **WO-<ADR>-<序号>**(如 `WO-0002-1`,全局唯一自解释)。
 
 ## 一轮闭环
-0. **开工建本 session 的 scratch 目录**:`mkdir -p scratchpad/PL-<id>`(`<id>` = 你 scratchpad 路径里那段**完整 session UUID**,与 `/finishing` 转写的 `--session` 用同一个)。本 session 一切 scratch 产物(WO、临时脚本)都落这目录。
-1. **出工单** → `scratchpad/PL-<id>/WO-current.md`(瘦,指针不复述;判据尽量写成测试;顶部带意图对齐行)。小档直接写 3–5 行 inline。
-2. **用户放行**(OK/改)。
-3. **派单**(两阶段:执行 + 独立验收)——**后台派,派完即停,别轮询**(见下「派发纪律」):
+0. **开工建本 session 的 scratch 目录**:`mkdir -p scratchpad/PL-<id>`(`<id>` = 你 scratchpad 路径里那段**完整 session UUID**,与 `/finishing` 转写的 `--session` 用同一个)。本 session 一切 scratch 产物(WO、临时脚本、disposition 记录)都落这目录。
+1. **出工单** → `scratchpad/PL-<id>/WO-current.md`(瘦,指针不复述;判据尽量写成测试;顶部带意图对齐行)。小档直接写 3–5 行 inline、不走下面的全量流程。
+2. **WO 审(派 worker 前;凡走全量工单模板的任务都过)**——异构只读模型只读 `WO + ADR`,审工单质量(判据够不够/忠实展开 ADR/边界失效模式漏没漏),**在派 worker 前拦下坏 WO**:
+   ```bash
+   WO_REVIEW=1 scripts/workflow/run_worker.sh scratchpad/PL-<id>/WO-current.md   # 跳执行,只审工单文本;后台派
+   ```
+   读回来的 **STATUS + findings**(结构见下「读放行状态」),对每条 blocking 出 disposition:**修 WO**(改完重审)/ **驳回+非空理由** / **转 ADR**。清完再往下。
+3. **用户放行**(OK/改)。
+4. **派单施工 + 施工审**——**后台派,派完即停,别轮询**(见下「派发纪律」):
    ```bash
    scripts/workflow/run_worker.sh scratchpad/PL-<id>/WO-current.md
      # 默认模型读 workflow.env:执行 $WF_WORKER_MODEL,验收 $WF_REVIEW_MODEL(跨厂异构)
    scripts/workflow/run_worker.sh scratchpad/PL-<id>/WO-current.md "$WF_WORKER_MODEL" "$WF_REVIEW_MODEL" "$WF_REVIEW_MODEL_STRONG"
-     # 高危/复杂:第4参触发**双验收**(两审并行、各出一单交叉检验,任一 NO-GO 即打回)
-   SKIP_REVIEW=1 scripts/workflow/run_worker.sh scratchpad/PL-<id>/WO-current.md   # 琐碎:跳验收,自己跑 $WF_TEST_CMD
+     # 高危/复杂:第4参触发**双验收**(两审并行、各出一单;跨验收员的 blocking 取并集)
+   SKIP_REVIEW=1 scripts/workflow/run_worker.sh scratchpad/PL-<id>/WO-current.md   # 琐碎:跳验收(越界检查仍跑),自己跑 $WF_TEST_CMD
    REVIEW_ONLY=1 scripts/workflow/run_worker.sh scratchpad/PL-<id>/WO-current.md   # planner 自己改的小修:只派独立验收
    ```
-   产物落 `scratchpad/runs/<run-id>/`:worker 自述 `report.md`、验收单 `review.md`(双验收另有 `review2.md`)、日志 `run.log`。回显只带 token 用量 + 验收单,**worker 的 diff/trace 不进 Claude context**(这是省 Opus 的关键)。
+   产物落 `scratchpad/runs/<run-id>/`:worker 自述 `report.md`、验收单 `review.md`(双验收另有 `review2.md`)、日志 `run.log`。回显只带 STATUS + 机器事实 + 验收单,**worker 的 diff/trace 与外呼流式中间态都不进 Claude context**(省 Opus 的关键)。
 
-   **派发纪律(省 token 的关键,任何外呼便宜 agent 都照此)**:派单走**后台**(`run_in_background`)——worker+验收常跑几分钟,后台派完 harness 会在进程结束时**自动重唤你**(前台会撞 Bash 超时)。**派完即停,等完成通知**;通知到了**直接读 `review.md`(+`review2.md`)拍板**。`run.log` 只在验收单指向某处、你要坐实时才点开那一段。
-4. **读验收单拍板,不逐行读 diff**——只做几件便宜事:
-   ① 看【判定】+【判据逐条】有无 FAIL/存疑、**【判据外边界】/【WO 判据体检】有没有指出判据本身不足或漏了 ADR 的失效模式**(验收员审的是 WO-vs-ADR,不只 diff-vs-WO)、**【越界/红线】干净否**(尤其 worker diff 若碰 `decisions/`·`architecture.md`·`AGENTS.md` 这些**著作类文件** = 越界 NO-GO,worker 只授权写代码 + scratchpad);
-   ② 自己跑 `$WF_TEST_CMD` 复核【pytest】数字(便宜、防谎报);
-   ③ **碰契约 / 热路径的 WO,亲眼看那段 diff**;其余只看【需亲验的点】列的 file:line(无风险改动不逐行通读);
-   ④ GO → **放行 commit**(TODO/文档维护交 `/cleaning`);FAIL/存疑 → 打回(同号加后缀 `WO-0002-1b` 重派)。
-5. **用户决定** commit / 打回 / 下一张。
+   **派发纪律(省 token 的关键)**:派单走**后台**(`run_in_background`)——worker+验收常跑几分钟,后台派完 harness 会在进程结束时**自动重唤你**(前台会撞 Bash 超时)。**派完即停,等完成通知**;通知到了**直接读 STATUS + `review.md`(+`review2.md`)拍板**。`run.log`(含外呼全量流式)只在验收单指向某处、你要坐实时才点开那一段。
+5. **读放行状态拍板,不逐行读 diff、不看退出码**——放行状态由脚本对不可变输入**纯派生**成一个 `STATUS:` 字段(退出码只有 `infra_failed` 非零):
+
+   | STATUS | 含义 | 你做什么 |
+   |---|---|---|
+   | `review_complete` | 无 blocking、机器事实全干净 | 看 nit 自曝清单(可选采纳)→ 亲验「需亲验的点」→ 放行 commit |
+   | `review_blocked` | 有 blocking ∨ pytest≠0 ∨ 越界 ∨ check_docs≠0 | 对每条 blocking 出 disposition;要修 → 收窄复审(见下 D4) |
+   | `review_skipped` | SKIP_REVIEW,未自动放行 | 自己跑 `$WF_TEST_CMD` + 抽查后自行拍板 |
+   | `infra_failed` | 报告解析失败 / CLI 失败 / 超时 | 看 `run.log` 定位,重派 |
+
+   机器事实(pytest / 越界 / check_docs)**脚本已亲产**,直接采信、不必自己复跑(越界:worker diff 碰 `decisions/·architecture.md·AGENTS.md` 著作类文件 = 脚本判越界);只在**碰契约/热路径**时亲看那段 diff,其余只看散文 body 列的「需亲验的点」。
+6. **裁决 blocking(D3,append-only、绑 revision)**:对每条 blocking 出 `修 / 驳回+非空理由 / 转 ADR`,记进 `scratchpad/PL-<id>/dispositions.md`(append-only,一行一条:`<run-id> <finding where> @rev<revision> → 驳回:<理由>`)。**驳回权归你**:每条驳回带非空理由、留 append-only 记录可复核。三种处置都算「已裁决」。**派生放行是信息态,不硬闸 commit**(solo commit 可逆);你判所有 blocking 已裁决即可放行。
+7. **复审 = 收窄的新派发(D4),无模型维护的跨轮状态**:要重验被修的 blocking → 同号加后缀 `WO-…b`,工单里标一节「复审:上一轮 open blocking:<逐条>」,要求验收员**逐条对新 revision 给证据判 resolved/still-present**。默认一轮,到软上限由你裁决。
+8. **用户决定** commit / 打回 / 下一张;坏 WO/坏设计 → 报告用户 → 开新/改 ADR。
 
 **ADR 结构 / 断链检查跑 canonical 脚本**(断链只认它):
 ```bash

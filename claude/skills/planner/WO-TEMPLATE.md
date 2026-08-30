@@ -7,7 +7,7 @@
 -->
 
 ## 抬头
-- **本单服务 → ADR-NNNN 的意图:<抄那句意图>**(闸门3;缺此行 / 不指向 ADR-NNNN,派单 hook 会 deny)
+- **本单服务 → ADR-NNNN 的意图:<抄那句意图>**(闸门3;缺此行 / 不指向 ADR-NNNN,`run_worker.sh` 入口会拒派)
 - 承接 HEAD:<git short sha / 分支>
 - 测试基线:<当前 `$WF_TEST_CMD` 的数字,如 128 passed>
 - SSOT:<本工单契约以哪个 ADR / architecture 节为准,如 ADR-0001、architecture §5.3>

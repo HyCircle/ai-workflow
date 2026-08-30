@@ -8,8 +8,9 @@
 机制的版本管理**只在这里**(单一事实源);各项目经 `install.sh` 装入这份的副本。改工作流 = 改 `workflow-kit/` → 重跑 `install.sh` 推给项目。**方向单一(kit → 项目)**,不在项目的 live 副本上改再回抓。
 
 ## 结构
-- `claude/` → 装进项目 `.claude/`:`skills/`(bs·planner·finishing·cleaning + 子文件)、`hooks/`(doc_guard·check_wo_intent)、`settings.json`(hooks 注册)、`workflow.env.example`。
-- `workflow-scripts/` → 装进项目 `scripts/workflow/`:`run_worker.sh`(两阶段派单)、`call_agent.sh`(外呼便宜 agent 的公共入口:派 prompt、把回复落成 md)、`check_docs.py`(ADR frontmatter + 断链)、`transcribe_session.py`(会话转写)。
+- `claude/` → 装进项目 `.claude/`:`skills/`(bs·planner·finishing·cleaning + 子文件)、`settings.json`、`workflow.env.example`。**不带 Claude Code 专属 hook**——闸门在脚本(意图/越界)与 git `pre-commit`(文档结构)里,可移植到 Cursor/Codex。
+- `workflow-scripts/` → 装进项目 `scripts/workflow/`:`run_worker.sh`(两阶段派单;内化意图/越界闸门;放行状态纯派生成 `STATUS:` 四态)、`call_agent.sh`(外呼公共入口:CLI 原生流式落 run.log、分角色超时杀整树)、`check_docs.py`(ADR frontmatter + 断链;`--changed`/`--staged`)、`transcribe_session.py`(会话转写)。
+- `git-hooks/pre-commit` → install 装进目标 `.git/hooks/`:提交前跑 `check_docs --staged` 校验 index 待提交内容。
 - `seed/` → 新项目首次 seed(已存在则不覆盖):`AGENTS.md`(常驻纪律 + 文档地图)、`decisions/0000-template.md`(ADR 模板)。
 - `workflow.md` —— 设计蓝图 / 权威(**给人/维护者读**,不 seed 进消费项目、agent 不引用它)。
 - `install.sh` —— 把本 kit 装进 / 更新一个项目。
@@ -20,7 +21,7 @@
 /path/to/workflow-kit/install.sh /path/to/target-project
 cd /path/to/target-project
 cp .claude/workflow.env.example .claude/workflow.env    # 填模型/命令档
-# 目标 .gitignore 需忽略 .claude/ 与 scripts/workflow/;重启 Claude Code 让 hooks 生效
+# 目标 .gitignore 需忽略 .claude/ 与 scripts/workflow/;install 已把 git pre-commit 装进 .git/hooks/
 ```
 
 ## 新项目 bootstrap(还没 ADR 时)
