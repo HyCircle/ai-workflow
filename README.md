@@ -1,13 +1,13 @@
 # workflow-kit —— 半自动多 agent 工作流(可移植机制)
 
-把「bs / planner / finishing / cleaning 四角色 + 跨家族异构派单 / 验收 + 闸门 hooks + ADR 文档系统」
+把「bs / planner / finishing / cleaning 四角色 + 跨家族异构派单 / 验收 + 闸门(脚本 + git pre-commit) + ADR 文档系统」
 从 hubpage 提出来的**机制副本**,是将来独立成 repo、装进各项目的雏形。
 
 ## 为什么单独一份
 `.claude/`、`scripts/workflow/`、`agent-discipline.md` 在每个项目里是**投影进来的 kit 副本**(本地忽略,不在原地进版本库)。
 机制的版本管理**只在这里**(单一事实源);各项目经 `install.sh` 投影。两种投影:
 - **copy**(默认):冻结快照,Windows 稳;改工作流 = 改 `workflow-kit/` → 重跑 `install.sh` 推项目。**方向单一(kit → 项目)**,不在 copy 副本上改再回抓。
-- **`--link`**(symlink 共读):项目目录指向 kit 单源,改 kit **即时生效、免重装**;单源故无漂移,"别在 live 副本上改"的告诫只针对 copy。
+- **`--link`**(symlink 共读):项目目录指向 kit 单源,改 kit **即时生效、免重装**。
 
 ## 结构
 - `agent-discipline.md` → 投影进项目根:常驻**六条纪律 + 脊椎**(全固化核,kit 拥有、一字不改)。worker/验收由 `run_worker.sh` 注进 prompt 开头;交互 harness 经 AGENTS.md 指针 + skills「开工先读」引到它。
@@ -30,5 +30,5 @@ cp .claude/workflow.env.example .claude/workflow.env    # 填模型/命令档
 ## 新项目 bootstrap(还没 ADR 时)
 `install.sh` 已 seed 出 AGENTS.md(常驻纪律 + 文档地图)与 `decisions/0000-template.md`。再自己补空 `decisions/` 与 `TODO.md`、填 `.claude/workflow.env`;第一个架构选择直接走 `/bs` 著作 ADR-0001。冷启动清单里 architecture/TODO 可暂缺,读到什么算什么。
 
-## 现状(transition)
-机制现以本 kit 为家(见「为什么单独一份」)。**稳定后抽成独立 repo**,届时开源上 GitHub、补全平台兼容(编排偏 Python,bash hook 是 Windows 坎)与中英兼容(机制层单一 canonical 语言,别手写两份)。
+## 后续
+机制 SOT 在本 kit;稳定后抽成独立 repo,补全跨平台兼容与中英 canonical 语言(机制层单一语言,不写双份)。

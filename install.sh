@@ -5,7 +5,7 @@
 # 装什么:.claude/{skills,settings.json,workflow.env.example} + scripts/workflow/* + agent-discipline.md(六条纪律)
 #         + git pre-commit(校验待提交文档结构)+ 首次 seed AGENTS.md(+CLAUDE.md 软链)、decisions/0000-template.md。
 # 忽略项写进目标 **.git/info/exclude**(本地、不碰目标 tracked 的 .gitignore),故装进已有项目零改其版本库。
-# 闸门下沉进脚本 + git pre-commit,不装 Claude Code 专属 hook。
+# 闸门在派单脚本 + git pre-commit(可移植,不依赖 harness 专属 hook)。
 set -euo pipefail
 KIT="$(cd "$(dirname "$0")" && pwd)"
 
@@ -38,7 +38,7 @@ _project "$KIT/workflow-scripts"    "$DEST/scripts/workflow"
 _project "$KIT/agent-discipline.md" "$DEST/agent-discipline.md"
 cp "$KIT/claude/workflow.env.example" "$DEST/.claude/workflow.env.example"
 
-# 摘除已下沉进脚本的旧 Claude Code hook(更新既有安装时)
+# 清理已废弃的 .claude/hooks/ 残留(更新既有安装时)
 rm -f "$DEST/.claude/hooks/check_wo_intent.sh" "$DEST/.claude/hooks/doc_guard.sh"
 rmdir "$DEST/.claude/hooks" 2>/dev/null || true
 
@@ -83,7 +83,7 @@ fi
 if [ -f "$DEST/.claude/settings.json" ]; then
   echo "⚠ 已存在 $DEST/.claude/settings.json —— 未覆盖。"
   if grep -qE 'check_wo_intent|doc_guard' "$DEST/.claude/settings.json"; then
-    echo "  ↳ 检测到旧 hook 注册(check_wo_intent/doc_guard),请手动删掉这两条(闸门已下沉进脚本)。"
+    echo "  ↳ 请从 settings.json 删掉 check_wo_intent / doc_guard 条目(闸门已在派单脚本)。"
   fi
 else
   cp "$KIT/claude/settings.json" "$DEST/.claude/settings.json"

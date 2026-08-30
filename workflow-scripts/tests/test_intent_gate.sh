@@ -44,7 +44,7 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# slug-ADR(无法核实存在性)→ 应拒派(闸门退化防护)
+# slug-ADR(无法核实存在性)→ 应拒派
 slug_wo="$TMP/slug-wo.md"
 cat > "$slug_wo" <<'EOF'
 # slug 工单
@@ -57,9 +57,9 @@ else
   echo "✓ slug-ADR 意图行拒派"
 fi
 
-# hooks 已摘除
+# settings.json 不含废弃 hook 条目
 if grep -rE 'check_wo_intent|doc_guard' "$ROOT/workflow-kit/claude/settings.json" >/dev/null 2>&1; then
-  echo "✗ settings.json 仍引用已删 hook"
+  echo "✗ settings.json 仍引用废弃 hook 条目"
   FAIL=$((FAIL + 1))
 else
   echo "✓ settings.json 无 check_wo_intent/doc_guard"

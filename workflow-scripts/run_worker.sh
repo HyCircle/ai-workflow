@@ -56,8 +56,7 @@ _check_wo_intent () {
     return 1
   fi
   # 只接受可核对存在性的 durable 决策锚:产品单指 ADR-NNNN(check_docs 能验断链);
-  # kit 自身工作指 workflow.md(kit 的 durable 设计权威,恒在)。slug-ADR 曾被接受但 check_docs
-  # 无从核实 → 闸门退化成格式检查,故不再接受。
+  # kit 自身工作指 workflow.md(kit 的 durable 设计权威,恒在)。
   if ! printf '%s' "$intent" | grep -qE 'ADR-[0-9]{4}|workflow\.md'; then
     echo "✗ 闸门:工单 $wo_file 的「本单服务」意图行未指向 ADR-NNNN 或 workflow.md" >&2
     return 1
@@ -111,8 +110,7 @@ else
   _expand_preamble "$WO_REVIEW_PREAMBLE" "$WO_REVIEW_PREAMBLE_X"
 fi
 
-# revision = 验收对象树的不可变快照 hash(含 untracked)。**必须在 worker 改完后算**——否则
-# hash 的是派单前的树(不含 worker 改动),审计/复审绑的 revision 名不副实。WO 审无代码,hash 工单内容。
+# revision = worker 改完后验收对象树的 hash(含 untracked); WO 审 hash 工单内容。
 _compute_revision () {
   if [ "${WO_REVIEW:-0}" = "1" ]; then
     sha256sum "$WO" | awk '{print substr($1,1,12)}'

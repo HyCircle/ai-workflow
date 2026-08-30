@@ -75,7 +75,7 @@ scripts/workflow/call_agent.sh --mode read-only \
    | `review_skipped` | SKIP_REVIEW,未自动放行 | 自己跑 `$WF_TEST_CMD` + 抽查后自行拍板 |
    | `infra_failed` | 报告解析失败 / CLI 失败 / 超时 | 看 `run.log` 定位,重派 |
 
-   `review_blocked` 是**信息态**——描述不可变事实(有 blocking / 机器事实红),**不随你出 disposition 翻转**(用户拍板「有 blocking 即 blocked」)。放行靠**你判所有 blocking 已裁决**,STATUS 保持 blocked 无妨(派生放行是给人读的信息态,不硬闸 commit)。它不是等你操作会变绿的状态机。
+   `review_blocked` 是**信息态**——描述不可变事实(有 blocking / 机器事实红),**不随 disposition 翻转**。放行靠**你判所有 blocking 已裁决**,STATUS 保持 blocked 无妨(派生放行是给人读的信息态,不硬闸 commit)。它不是等你操作会变绿的状态机。
    机器事实(pytest / 越界 / check_docs)**脚本已亲产**,直接采信、不必自己复跑(越界:worker diff 碰 `decisions/·architecture.md·AGENTS.md` 著作类文件 = 脚本判越界)。
    **亲验哪些**:验收单 body 列的「需亲验的点」里,凡**碰契约 / 热路径 / 新写入面**的 → **必亲看那段 diff**(省不得);纯局部、判据已覆盖的点 → 读验收单即可。**跳过某个本该亲验的点**,记一行进 `dispositions.md`(`<run-id> 跳过亲验 <点> → 理由`)——跳过留痕才可核,别无声跳过。
 6. **裁决 blocking(D3,append-only、绑 revision)**:对每条 blocking 出 `修 / 驳回+非空理由 / 转 ADR`,记进 `scratchpad/PL-<id>/dispositions.md`(append-only,一行一条:`<run-id> <finding where> @rev<revision> → 驳回:<理由>`)。**驳回权归你**:每条驳回带非空理由、留 append-only 记录可复核。三种处置都算「已裁决」。**派生放行是信息态,不硬闸 commit**(solo commit 可逆);你判所有 blocking 已裁决即可放行。

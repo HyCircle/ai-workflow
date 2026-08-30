@@ -71,7 +71,7 @@ _parse_one_review () {
     fi
   done < "$file"
 
-  # 未闭合块(报告被截断)= 不可解析,别静默丢内容后放行(§0.2)
+  # 未闭合块(报告被截断)→ infra_failed(§0.2)
   if [ "$in_block" = "1" ]; then
     PARSE_OK=0
     echo "自曝: $file 有未闭合的 <<<FINDING 块(报告可能被截断)" >&2

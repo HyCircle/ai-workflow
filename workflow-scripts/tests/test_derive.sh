@@ -129,7 +129,7 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 11 — 未闭合块(截断报告)→ infra_failed,别静默丢内容后放行(§0.2)
+# 11 — 未闭合块(截断报告)→ infra_failed(§0.2)
 f11="$TMP/r11.md"; _unclosed "$f11"
 _assert "11 未闭合块→infra_failed" infra_failed 2 \
   --review "$f11" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0

@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """文档结构守护(canonical)—— ADR frontmatter/命名校验 + `ADR-NNNN` 断链检查。
 
-ADR 让检查大幅变简单:决策活在 `decisions/NNNN-slug.md`,引用写 `ADR-NNNN`,
-断链 = 查 `decisions/NNNN-*` 在不在(比旧的解析 PLAN §子章节简单得多)。
-本脚本合并了旧 check_deadlinks;旧的 STATE 规则 / docs-不引-STATE / PLAN§ 解析已全删。
+决策活在 `decisions/NNNN-slug.md`,引用写 `ADR-NNNN`,断链 = 查 `decisions/NNNN-*` 在不在。
 
 **为什么用脚本不用手写 grep**:手写 `grep 'ADR-[0-9]'` 会因空格/子串/注释误报,
 分不清「本轮引入」与「存量」。脚本 = 唯一真相:正则精确、按结构化 frontmatter 校验、
