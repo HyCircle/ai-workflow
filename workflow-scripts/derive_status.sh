@@ -30,7 +30,6 @@ BLOCKING_COUNT=0
 NIT_COUNT=0
 NIT_LIST=()
 SELF_EXPOSE=()
-DEAD_FILES=()
 PARSE_OK=1
 
 _field_val () {
@@ -50,23 +49,17 @@ _parse_one_review () {
   [ -f "$file" ] || { PARSE_OK=0; echo "自曝: 验收单不存在: $file" >&2; return 1; }
 
   while IFS= read -r line || [ -n "$line" ]; do
-    if [ "$line" = "<<<FINDINGS-NONE>>>" ]; then
-      has_none=1
-      continue
-    fi
-    if [ "$line" = "<<<FINDING" ]; then
-      in_block=1
-      block_lines=()
-      has_finding_marker=1
-      continue
-    fi
-    if [ "$in_block" = "1" ] && [ "$line" = "FINDING>>>" ]; then
-      in_block=0
-      blocks+=("$(printf '%s\n' "${block_lines[@]}")")
-      block_lines=()
-      continue
-    fi
+    line="${line%"${line##*[![:space:]]}"}"   # 去行尾空白/CR:marker 可紧贴文本或带尾随空白
+    case "$line" in
+      *"<<<FINDINGS-NONE>>>"*) has_none=1; continue ;;
+    esac
+    case "$line" in
+      *"<<<FINDING"*) in_block=1; block_lines=(); has_finding_marker=1; continue ;;
+    esac
     if [ "$in_block" = "1" ]; then
+      case "$line" in
+        *"FINDING>>>"*) in_block=0; blocks+=("$(printf '%s\n' "${block_lines[@]}")"); block_lines=(); continue ;;
+      esac
       block_lines+=("$line")
     fi
   done < "$file"
@@ -133,20 +126,10 @@ if [ "$SKIP_REVIEW" != "1" ]; then
     echo "自曝: 未跳过验收但无验收单路径" >&2
   else
     for rf in "${REVIEW_FILES[@]}"; do
-      # dead = 缺文件 或 空/纯空白(验收员超时被杀 → call_agent 落空文件)。dead ≠ unparseable:
-      # 有其他存活验收员时按存活者派生 + 自曝;**全 dead** 才 infra_failed(无结论)。
-      # 有内容但无标记/未闭合 = unparseable(可能藏 blocking)→ 仍 PARSE_OK=0 硬 infra_failed(§0.2)。
-      if [ ! -f "$rf" ] || ! grep -q '[^[:space:]]' "$rf" 2>/dev/null; then
-        DEAD_FILES+=("$rf")
-        SELF_EXPOSE+=("验收单 $rf 空/缺失(验收员疑超时被杀);有存活验收员则仅按存活者派生")
-        continue
-      fi
+      # 任一验收单缺失/空/不可解析 → 该员无结论,整轮 infra_failed(不可解析可能藏 blocking)。
+      # 回显仍展示存活验收员的单子,planner 可 REVIEW_ONLY 重派失败的那员(第 3 参=该员模型、省略第 4 参;工作树冻结)。
       _parse_one_review "$rf" || true
     done
-    if [ "$PARSE_OK" = "1" ] && [ "${#DEAD_FILES[@]}" -eq "${#REVIEW_FILES[@]}" ]; then
-      PARSE_OK=0
-      SELF_EXPOSE+=("全部验收员均无有效产出 → 无验收结论")
-    fi
   fi
 fi
 

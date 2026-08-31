@@ -27,6 +27,7 @@ cp .claude/workflow.env.example .claude/workflow.env    # 填模型/命令档
 # install 已把忽略项写进 .git/info/exclude(不碰目标 tracked .gitignore)、pre-commit 装进 .git/hooks/
 ```
 
+
 ## 新项目 bootstrap(还没 ADR 时)
 `install.sh` 已 seed 出 AGENTS.md(常驻纪律 + 文档地图)与 `decisions/0000-template.md`。再自己补空 `decisions/` 与 `TODO.md`、填 `.claude/workflow.env`;第一个架构选择直接走 `/bs` 著作 ADR-0001。冷启动清单里 architecture/TODO 可暂缺,读到什么算什么。
 

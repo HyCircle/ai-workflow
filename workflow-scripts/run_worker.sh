@@ -3,7 +3,9 @@
 #   ① 执行     :worker 改代码(不 commit),报告落 report.md
 #   ② 独立验收 :另一个 agent 结合 git diff 挑刺,产出结构化 findings(见 review-preamble.md)
 #                双验收时**两个验收员并行跑**(互无依赖:各读同一份已冻工作树、各写各的验收单);
-#                一员死(超时/空产出)但另一员产出可解析验收单 → 按存活者派生 + 自曝死者,不整轮报废。
+#                任一验收员无有效产出 → 该轮无验收结论,整轮 infra_failed(自曝);回显仍展示存活
+#                验收员的单子,planner 见 infra_failed 后 REVIEW_ONLY 重派失败的那员(第 3 参=该员
+#                模型、省略第 4 参;工作树冻结,不重跑 worker)。
 #   回到 planner 的**只有**:STATUS + findings 摘要(含 nit 自曝清单)+ 机器事实 + 验收单 + git stat + token 用量。
 #   派发统一走 call_agent.sh(worker=write、验收=read-only);本脚本只做编排。
 #   worker/验收 prompt 开头都会附上 agent-discipline.md(常驻六条纪律),不靠各 harness 的 AGENTS 自动加载。
@@ -138,8 +140,6 @@ RO_LABEL=""
   fi
   if [ "${SKIP_REVIEW:-0}" = "1" ]; then
     echo "▶ 审查     : (跳过)"
-  elif [ "${WO_REVIEW:-0}" = "1" ]; then
-    echo "▶ 审查模型 : $REVIEW_MODEL${REVIEW_MODEL_2:+  +双验收(并行) $REVIEW_MODEL_2}"
   else
     echo "▶ 审查模型 : $REVIEW_MODEL${REVIEW_MODEL_2:+  +双验收(并行) $REVIEW_MODEL_2}"
   fi
@@ -165,16 +165,14 @@ else
   [ "$RC" -ne 0 ] && CLI_FAILED=1
 fi
 
-# 越界校验(worker 执行后,SKIP_REVIEW 也跑)
+# 越界校验(worker 执行后,SKIP_REVIEW 也跑):路径集取 git 实源,不解析 porcelain 字符串。
 OVERREACH=0
 if [ "${WO_REVIEW:-0}" != "1" ]; then
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    path="${line:3}"
+  while IFS= read -r path; do
     case "$path" in
       decisions/*|AGENTS.md|architecture.md) OVERREACH=1 ;;
     esac
-  done < <(git status --porcelain)
+  done < <(git diff --name-only HEAD; git ls-files --others --exclude-standard)
 fi
 
 # revision 在 worker 改完后算(见 _compute_revision 注释):hash 的是验收员实际看的那棵树。
@@ -217,22 +215,14 @@ for i in "${!REVIEW_MODELS[@]}"; do
 done
 
 REVIEW_RC_ECHO=""
-REVIEW_FAIL_COUNT=0
 for i in "${!REVIEW_MODELS[@]}"; do
   rm="${REVIEW_MODELS[$i]}"; rfile="${REVIEW_FILES[$i]}"
   wait "${REVIEW_PIDS[$i]}"; rrc=$?
   rtok="$(cat "${rfile}.tok" 2>/dev/null)"
   REVIEW_RC_ECHO+="验收$((i+1))($rm) 退出码: $rrc  ${rtok}"$'\n'
-  if [ "$rrc" -ne 0 ] || [ ! -f "$rfile" ]; then
-    REVIEW_FAIL_COUNT=$((REVIEW_FAIL_COUNT + 1))
-    [ -f "$rfile" ] || REVIEW_RC_ECHO+="验收$((i+1))($rm) 未产出 $rfile"$'\n'
-  fi
+  [ -f "$rfile" ] || REVIEW_RC_ECHO+="验收$((i+1))($rm) 未产出 $rfile"$'\n'
 done
-# 只有**全部**验收员都失败(单验收即该员)才整轮 infra_failed;部分失败(双验收里死一个)不报废——
-# 全部 REVIEW_FILES 都交给 derive,它把空/缺的判为 dead、按存活者派生并自曝(§0.2 安全降级 + 自曝)。
-if [ "${#REVIEW_MODELS[@]}" -gt 0 ] && [ "$REVIEW_FAIL_COUNT" -eq "${#REVIEW_MODELS[@]}" ]; then
-  CLI_FAILED=1
-fi
+# 验收员失败与否由 derive 从验收单判定(缺失/空/不可解析 → 自曝 + infra_failed),本处只留回显。
 
 # 派生 STATUS
 DERIVE_ARGS=(--skip-review "${SKIP_REVIEW:-0}" --pytest-rc "$PYTEST_RC" --overreach "$OVERREACH" --check-docs-rc "$CHECK_DOCS_RC" --cli-failed "$CLI_FAILED")
@@ -249,7 +239,6 @@ set -e
   echo ""
   echo "═══════ 回给 planner(只看这段;不回 diff/trace) ═══════"
   echo "revision: $REVISION"
-  printf '%s\n' "$STATUS_LINE"
   printf '%s\n' "$DERIVE_OUT"
   echo "执行退出码: $RC"
   printf '%s' "$REVIEW_RC_ECHO"
@@ -267,7 +256,17 @@ set -e
   done
   if [ "${WO_REVIEW:-0}" != "1" ] && [ "${SKIP_REVIEW:-0}" != "1" ]; then
     echo "── pytest ──"
-    printf '%s\n' "${PYTEST_OUT:-（无输出）}"
+    if [ "$PYTEST_RC" -eq 0 ]; then
+      echo "pytest: 全绿"
+    else
+      fail_lines="$(printf '%s\n' "${PYTEST_OUT:-}" | grep -E '^FAILED' | head -20)"
+      if [ -n "$fail_lines" ]; then
+        echo "pytest: 红(失败列表如下,全文见 run.log)"
+        printf '%s\n' "$fail_lines"
+      else
+        echo "pytest: 红(rc=$PYTEST_RC,未见 FAILED 行;全文见 run.log)"
+      fi
+    fi
     echo "── 文档结构守护(check_docs --changed)──"
     printf '%s\n' "${CHECK_DOCS_OUT:-（无输出）}"
   fi
@@ -275,16 +274,25 @@ set -e
   echo "✔ trace/token 全量日志: $LOG"
 } | tee -a "$LOG"
 
-# best-effort 敏感串打码
+# best-effort 敏感串打码(与 call_agent 的流式打码同一套 pattern,各盖不同内容:本处覆盖
+# 回显段里的验收单/机器输出全文,两者幂等不冲突)。
 sed -i \
   -e 's/sk-[a-zA-Z0-9_-]\{20,\}/[REDACTED]/g' \
   -e 's/ghp_[a-zA-Z0-9]\{20,\}/[REDACTED]/g' \
+  -e 's/gho_[a-zA-Z0-9]\{20,\}/[REDACTED]/g' \
   "$LOG" 2>/dev/null || true
 
 if printf '%s' "$STATUS_LINE" | grep -q 'infra_failed'; then
+  if [ "$CLI_FAILED" = "1" ]; then
+    echo "重派提示: worker/CLI 失败 → 整单重派" | tee -a "$LOG"
+  elif [ "${WO_REVIEW:-0}" = "1" ]; then
+    echo "重派提示: WO 审失败 → WO_REVIEW=1 重审工单" | tee -a "$LOG"
+  else
+    echo "重派提示: 验收失败 → REVIEW_ONLY=1 重派验收,不重跑 worker(第 3 参=失败验收员模型、省略第 4 参)" | tee -a "$LOG"
+  fi
   exit 2
 fi
 # .done = 「产物已定、可被 /cleaning 按龄 GC」的标记,**不是放行判定**——放行状态看 STATUS(complete/blocked/skipped)。
-# blocked 也落 .done(产物已定):它按龄回收,durable 审计痕迹在 dispositions.md + git,不在 ephemeral run 目录。
+# blocked 也落 .done(产物已定):它按龄回收,durable 审计痕迹在 git(commit message),不在 ephemeral run 目录。
 touch "$RUN_DIR/.done"
 exit 0

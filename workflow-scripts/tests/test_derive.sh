@@ -134,23 +134,23 @@ f11="$TMP/r11.md"; _unclosed "$f11"
 _assert "11 未闭合块→infra_failed" infra_failed 2 \
   --review "$f11" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0
 
-# 12 — 双验收一死(空)一活(blocking):按存活者派生 review_blocked,不 infra_failed
+# 12 — 双验收一死(空)一活(blocking):任一验收员无有效产出 → 整轮 infra_failed(自曝),不按存活者派生
 f12a="$TMP/r12a.md"; f12b="$TMP/r12b.md"; _empty "$f12a"; _blocking "$f12b"
 out12="$("$DERIVE" --review "$f12a" --review "$f12b" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0 2>&1)" || rc12=$?
 rc12=${rc12:-0}
 got12="$(printf '%s\n' "$out12" | grep '^STATUS:' | head -1 | awk '{print $2}')"
-if [ "$got12" = "review_blocked" ] && [ "$rc12" -eq 0 ] && printf '%s\n' "$out12" | grep -q '空/缺失'; then
-  echo "✓ 12 双验收死一个→按存活者 review_blocked+自曝: STATUS=$got12 rc=$rc12"
+if [ "$got12" = "infra_failed" ] && [ "$rc12" -eq 2 ] && printf '%s\n' "$out12" | grep -q '不可解析'; then
+  echo "✓ 12 双验收一死→整轮 infra_failed+自曝: STATUS=$got12 rc=$rc12"
   PASS=$((PASS + 1))
 else
-  echo "✗ 12: 期望 review_blocked rc=0 含自曝, 实得 STATUS=$got12 rc=$rc12"
+  echo "✗ 12: 期望 infra_failed rc=2 含自曝, 实得 STATUS=$got12 rc=$rc12"
   printf '%s\n' "$out12"
   FAIL=$((FAIL + 1))
 fi
 
-# 13 — 单验收死(空):全 dead → infra_failed(无结论)
+# 13 — 单验收空:无结论 → infra_failed
 f13="$TMP/r13.md"; _empty "$f13"
-_assert "13 单验收空(全dead)→infra_failed" infra_failed 2 \
+_assert "13 单验收空→infra_failed" infra_failed 2 \
   --review "$f13" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0
 
 # 14 — 纯 nit:review_complete + nit 自曝清单
@@ -166,6 +166,45 @@ else
   printf '%s\n' "$out14"
   FAIL=$((FAIL + 1))
 fi
+
+# 15 — glued opener(紧贴文本的 <<<FINDING)→ blocking 计入(回归:此前整块漏计)
+f15="$TMP/r15.md"
+cat > "$f15" <<'EOF'
+先读 diff。以下紧贴文本:检查通过。<<<FINDING
+severity: blocking
+where: test:15
+claim: 紧贴文本的 blocking
+FINDING>>>
+EOF
+out15="$("$DERIVE" --review "$f15" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0 2>&1)" || rc15=$?
+rc15=${rc15:-0}
+got15="$(printf '%s\n' "$out15" | grep '^STATUS:' | head -1 | awk '{print $2}')"
+if [ "$got15" = "review_blocked" ] && [ "$rc15" -eq 0 ] && printf '%s\n' "$out15" | grep -q 'blocking=1'; then
+  echo "✓ 15 glued opener→blocking 计入: STATUS=$got15 rc=$rc15"
+  PASS=$((PASS + 1))
+else
+  echo "✗ 15 glued opener: 期望 review_blocked 且 blocking=1, 实得 STATUS=$got15 rc=$rc15"
+  printf '%s\n' "$out15"
+  FAIL=$((FAIL + 1))
+fi
+
+# 16 — glued NONE(紧贴文本的 <<<FINDINGS-NONE>>>)→ review_complete
+f16="$TMP/r16.md"
+printf '正文结束。<<<FINDINGS-NONE>>>\n' > "$f16"
+_assert "16 glued NONE→review_complete" review_complete 0 \
+  --review "$f16" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0
+
+# 17 — CRLF 行尾(Windows 产物)→ 仍能解析
+f17="$TMP/r17.md"
+printf '<<<FINDING\r\nseverity: blocking\r\nwhere: test:17\r\nclaim: CRLF\r\nFINDING>>>\r\n' > "$f17"
+_assert "17 CRLF→review_blocked" review_blocked 0 \
+  --review "$f17" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0
+
+# 18 — marker 行尾空白 → 仍能解析
+f18="$TMP/r18.md"
+printf '<<<FINDING   \nseverity: blocking\nwhere: test:18\nclaim: 尾随空格\nFINDING>>>  \n' > "$f18"
+_assert "18 行尾空白→review_blocked" review_blocked 0 \
+  --review "$f18" --skip-review 0 --pytest-rc 0 --overreach 0 --check-docs-rc 0 --cli-failed 0
 
 echo "── 合计: $PASS 通过, $FAIL 失败 ──"
 [ "$FAIL" -eq 0 ]

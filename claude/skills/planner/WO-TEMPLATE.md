@@ -1,7 +1,7 @@
 # 工单 WO-<ADR>-<N> — <一句话目标>
 
 <!--
-用法:复制 → scratchpad/PL-<id>/WO-current.md 填好 → 用户放行 → run_worker.sh。
+用法:复制 → scratchpad/PL-<id>/WO-current.md 填好 → 用户放行 → scripts/workflow/run_worker.sh。
 编号:WO-<ADR 四位号>-<序号>(如 WO-0002-1;跟决策走,全局唯一)。
 怎么写工单见 /planner skill;两条最易忘:① 出单前 grep/read 核实所有 file:line/常量名(纪律④);② worker 派单时已附六条纪律 + 交付契约,别在工单里复述。
 -->
@@ -9,7 +9,6 @@
 ## 抬头
 - **本单服务 → ADR-NNNN 的意图:<抄那句意图>**(闸门3;缺此行 / 不指向 ADR-NNNN,`run_worker.sh` 入口会拒派)
 - 承接 HEAD:<git short sha / 分支>
-- 测试基线:<当前 `$WF_TEST_CMD` 的数字,如 128 passed>
 - SSOT:<本工单契约以哪个 ADR / architecture 节为准,如 ADR-0001、architecture §5.3>
 
 ## 目标(1 行,可验证)

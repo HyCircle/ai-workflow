@@ -30,9 +30,9 @@ def _repo_root() -> Path:
     r = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     )
-    if r.returncode == 0 and r.stdout.strip():
-        return Path(r.stdout.strip())
-    return Path(__file__).resolve().parents[2]  # 非 git 环境兜底
+    if r.returncode != 0 or not r.stdout.strip():
+        raise SystemExit("✗ check_docs 须在 git 仓库内运行")
+    return Path(r.stdout.strip())
 
 
 ROOT = _repo_root()

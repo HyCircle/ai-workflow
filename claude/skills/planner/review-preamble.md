@@ -12,7 +12,7 @@
 7. **若本单是复审**(工单有「复审:上一轮 open blocking …」一节):对列出的每条上轮 blocking,逐条给新 revision 的证据判 `resolved`(引 file:line 证明已修)或 `still-present`。still-present 的重报 blocking;另可新报本轮发现的 blocking。
 
 ## 输出格式(严格遵守,外层脚本按此解析)
-findings 在最前,每条一个 sentinel 块;你填 severity/where/claim/failure_scenario 四个字段,id/status/verdict/pytest/revision 由脚本 stamp/派生:
+findings 在最前,每条一个 sentinel 块;你填 severity/where/claim/failure_scenario 四个字段:
 ```
 <<<FINDING
 severity: blocking | nit

@@ -7,7 +7,7 @@
 #
 # 退出码:0=正常;124=超时;3=agent 报错(error result);4=流截断(无 success result)。
 #   报告提取只认最后一个 {"type":"result","subtype":"success"} 的 .result;拿不到 → fail-loud
-#   写显式标记 + 非零退出,绝不静默产出 thinking 碎片当报告(纪律②)。
+#   写显式标记 + 非零退出。thinking/assistant 增量一律不当报告。
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -38,7 +38,7 @@ case "$SPEC" in
 esac
 
 PROMPT="$(cat "$@")"
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "✗ call_agent 须在 git 仓库内运行" >&2; exit 2; }
 text=""; rc=0; usage=""; EXTRACT_RC=0
 
 _redact_stream_log () {
@@ -89,7 +89,7 @@ _run_cursor () {
   if [ "$MODE" = "read-only" ]; then mode_flags=(--mode ask --trust); else mode_flags=(--force --trust); fi
 
   # 超时前缀:coreutils timeout 默认杀整个进程树(含 cursor-agent 派生的 node 子进程);
-  # TIMEOUT_SEC≤0 时 tmo 为空数组 → 不限时直接跑。stdin 接 /dev/null:万一审批提示不会读终端阻塞。
+  # TIMEOUT_SEC≤0 时 tmo 为空数组 → 不限时直接跑。stdin 接 /dev/null:审批提示不读终端,不会阻塞。
   local -a tmo=()
   [ "$TIMEOUT_SEC" -gt 0 ] 2>/dev/null && tmo=(timeout -k 5 "$TIMEOUT_SEC")
 

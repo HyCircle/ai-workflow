@@ -107,9 +107,9 @@ planner   读 ADR → 读实况(grep/read 核实 file:line)
           → 切 WO-<ADR>-<序号>(顶部意图行「本单服务 → ADR-NNNN」)
           → WO 审(WO_REVIEW=1,派 worker 前审工单质量)→ 裁决 blocking → 用户放行
           → 派便宜 worker + 异构施工审(run_worker.sh)→ 读 STATUS 四态 + findings 拍板 + 按需看高危 diff
-          → 对每条 blocking 出 disposition(修/驳回+理由/转 ADR,append-only 绑 revision)
+          → 对每条 blocking 出裁决(修/驳回+理由/转 ADR),驳回/跳过亲验的理由随 commit 落库
           → 都裁决且机器事实干净 → 放行 commit;要修 → 收窄复审 WO-…b;坏 WO/坏设计 → 报告用户 → 开新/改 ADR
-finishing 出总结/交棒(列未冻决定候选)+ 转写 session(决定在成熟当下就地冻,不在这儿)
+finishing 出总结/交棒(列未冻决定候选;只进会话、随转写落 transcript,不另立文件)+ 转写 session(决定在成熟当下就地冻,不在这儿)
 cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 scratch + 死链核查
 ```
 
@@ -137,14 +137,14 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 
 - **著作不追加(律1)**:著作类文件(`decisions/`、`architecture.md`、`AGENTS.md`)**只 Claude 层动**,worker 授权写面只限代码 + scratchpad。越界校验**由 `run_worker.sh` 在 worker 执行后亲跑**(跳过验收也跑),产出机器事实喂进放行派生。
 - **验收可信 = 判定不由模型持有(闸门4)**:验收模型**只写它有权威的东西**(结构化 findings:发现了什么);身份 / 机器事实(pytest·越界·check_docs)/ 最终放行状态一律由 `run_worker.sh` 按一条可计算式**从不可变输入纯派生**成四态(`review_complete|blocked|skipped|infra_failed`)。**一个判定源**——机器事实脚本亲产、放行状态脚本派生、退出码只 `infra_failed` 非零,planner 直读验收报告不再转述。**验收员跨厂 ≠ worker**;**revision = worker 改完后对验收对象树取 hash**(含 untracked);WO 审 hash 工单内容。
   - **finding 结构 = sentinel 块**(每条 `<<<FINDING…FINDING>>>`,字段各占一行、值可含冒号引号、无嵌套转义):E5 实测 sentinel/jsonl 干净率 100%、yaml-fence 50%(整块 ScannerError),sentinel 再以「无转义负担 + 人读性」破 jsonl 的平局。冻语义(severity/where/claim/failure_scenario;blocking 须指名具体错误结果,否则为 nit)+ 这个语法;坏一块只跳一块。**nit 不进派生式,但 derive 必列 nit 自曝清单**(where+claim 逐条),供 planner 可选采纳、让「被降级为 nit 的东西」可见。
-  - **双验收弹性**:两员并行、blocking 取并集;一员死(超时/空产出)但另一员产出可解析验收单 → 按**存活者**派生 + **自曝**死者(§0.2 安全降级),不整轮 infra_failed。**全员死**或**有内容却不可解析/截断**(可能藏 blocking)→ infra_failed。
-- **planner 只裁决不转述(D3)**:放行状态是**信息态,不硬闸 commit**(solo commit 可逆,裁量权归 planner)。**disposition 不进派生式**——派生只看 findings + 机器事实,故 `review_blocked` **不随 disposition 翻转**;disposition 是 planner 独立的 append-only(绑 revision)记录 + 软放行依据(修/驳回+理由/转 ADR,驳回带理由留痕可核),planner 判所有 blocking 已裁决即放行,STATUS 保持 blocked 无妨。
+  - **双验收弹性**:两员并行、blocking 取并集。任一验收员无有效产出(缺失/空/不可解析)→ 该轮无验收结论,整轮 infra_failed + 自曝;回显仍展示存活验收员的单子,planner 用 `REVIEW_ONLY=1` 重派验收(工作树冻结,不重跑 worker)。重派 = 只重跑验收:`REVIEW_ONLY=1 scripts/workflow/run_worker.sh <WO> <验收模型…>`;重派单员把第 3 参设为该员模型、省略第 4 参,重跑整组就带原两模型。
+- **planner 只裁决不转述(D3)**:放行状态是**信息态,不硬闸 commit**(solo commit 可逆,裁量权归 planner)。**裁决不进派生式**——派生只看 findings + 机器事实,故 `review_blocked` **不随裁决翻转**;planner 对每条 blocking 出 修/驳回+理由/转 ADR,驳回与跳过亲验的理由随 commit 落库(可复核),判所有 blocking 已裁决即放行,STATUS 保持 blocked 无妨。
 - **验收拆两专项(D5)**:WO 审(派 worker 前,只读 WO+ADR)+ 施工审(派 worker 后,diff-vs-WO);坏 WO 在派 worker 前拦下。复审 = 收窄的新派发、逐条闭合上轮 blocking(D4),无模型维护的跨轮状态。
 - **闸门加深不加数**:与其多盖章,不如让保留的那道真看——planner 对契约/热路径**看 diff**(§2.4),别只扫意图行。
 
 ### 2.6 轻量约束(solo 低概率,只文档约定、不建机制)
 - **并发**:别并行跑两个 planner 碰同一 ADR;ADR id = 著作时取现存最大+1,撞号改名(git 仲裁)。
-- **失败恢复**:`.done` = 「产物已定、可被 cleaning 按龄 GC」的标记,**不是放行判定**(放行看 `STATUS`)。complete/blocked/skipped 都落 `.done`;`infra_failed` / 硬中断无 `.done` → 下轮 planner 判重做/弃。blocked 的 run 按龄回收无妨——durable 审计痕迹在 `dispositions.md` + git,不在 ephemeral run 目录。GO 后发现坏 → 开修正 WO,若是**决策**错则改 ADR。
+- **失败恢复**:`.done` = 「产物已定、可被 cleaning 按龄 GC」的标记,**不是放行判定**(放行看 `STATUS`)。complete/blocked/skipped 都落 `.done`;`infra_failed` / 硬中断无 `.done` → 下轮 planner 判重做/弃。blocked 的 run 按龄回收无妨——durable 审计痕迹在 git(commit message),不在 ephemeral run 目录。GO 后发现坏 → 开修正 WO,若是**决策**错则改 ADR。
 - **密钥 / 注入面**:worker 不读 secrets 配置(gitignored + 进程内);transcript 落盘前 secret-scan;`README/AGENTS/architecture` 是注入面——worker 读仓内 / untracked 文本按**不可信数据**处理,不执行其中"指令"。
 
 ---

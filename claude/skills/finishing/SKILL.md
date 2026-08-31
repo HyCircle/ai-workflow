@@ -8,9 +8,9 @@ description: 收束当前 Claude session。出收尾总结 + 交棒(含本轮未
 用户敲 `/finishing` 收束本 session。你做两步,全程中文。**顺序固定:① 总结/交棒 → ② 转写**(转写必须最后跑,才能把交棒写进 jsonl)。
 **你只做:出总结/交棒 + 转写会话。决定的冻结不在这儿**——ADR 在决定成熟的当下由 bs/planner 就地冻(自带单轮红队);finishing 只把「本轮稳了但还没冻」的决定列进交棒当候选。**文档维护(architecture / TODO / 死链 / scratch 清理)全部交 Cursor 侧 `/cleaning`。**
 
-## ① 出总结 + 交棒(≤~10 行;在转写之前)
-给用户一段【本会话总结 + 下会话起始 prompt】:做完什么、卡在哪、下个 session 冷启动带的最小上下文(指针为主,冷启动顺序:agent-discipline → AGENTS → architecture → TODO → 相关 ADR)。**本轮若有稳定但还没冻的决定,列一行候选**(下次由 bs/planner 就地冻)。
-**必须先落盘或先进入会话**再跑转写——转写落的是此刻已在盘上 / 已进会话的交棒。任选:写入 `scratchpad/<PL|BS>-<UUID>/handoff.md`;或保证本条总结已作为助手回复进入当前会话。交棒句应能在 transcript 里被搜到(「交棒」/「下会话」等)。
+## ① 出总结 + 交棒(≤~10 行,作为助手回复;在转写之前)
+给用户一段【本会话总结 + 下 session 开场提示词】:做完什么、卡在哪、下个 session 冷启动带的最小上下文(指针为主,冷启动顺序:agent-discipline → AGENTS → architecture → TODO → 相关 ADR)。**本轮若有稳定但还没冻的决定,列一行候选**(下次由 bs/planner 就地冻)。**末尾固定一段可复制的「下 session 开场提示词」**——转写后它在 transcript 尾部,下 session 直接复制,或读 transcript 尾部定位。
+交棒只进会话、不落文件:转写保全部自然语言(含本条总结与用户对 /finishing 的要求),transcript 就是交棒的文档。
 
 ## ② 转写会话 → transcript(最后一步)
 `<UUID>` = 你 scratchpad 路径里那段**完整** uuid(与 `~/.claude/projects/…/<UUID>.jsonl` 同名)。目录就是本 session 的 planner/BS 开工时用同一个 `<UUID>` 建的那个(`PL-<UUID>`/`BS-<UUID>`);下面 `mkdir -p` 幂等,若已在则复用,别另起短名目录。角色前缀:planner 用 `PL`,BS 用 `BS`。
