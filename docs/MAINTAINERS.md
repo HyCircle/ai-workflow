@@ -13,6 +13,7 @@
 - `workflow.md` —— 设计权威 / 蓝图(给人 / 维护者读)。**不 seed 进消费项目,agent 不引用**。
 - `README.md` —— 本仓结构与用法总览。
 - `docs/failure-modes.md` —— 已知失效模式(留作纪律);改机制前必扫。**维护者面向,不投影**。
+- `docs/dot-workflow-layout.md` —— 下一步 install 改造方案(`.workflow/` 统一布局,已定待施工)。
 - `docs/history/` —— 原始诊断 / 计划的证据归档(failure-modes 的出处)。
 - `docs/MAINTAINERS.md`(本文)—— 维护流程。
 
@@ -32,7 +33,8 @@
 - copy-mode 消费方 = 按 install 时点冻结的快照;打 tag 让「项目装的是哪版机制」可追溯。
 - 从 `v0.1.0` 起打 tag;changelog = git 历史(不另写 CHANGELOG)。
 
-## roadmap(明确暂不做,纪律③)
-- `install.sh --prefix <子目录>` 通用化 + 消费项目 zhidazhushou(eval/ 前缀布局)迁移。详见
-  `docs/history/extraction-plan.md` 第五 / 六节。根布局消费者无需 `--prefix`。
-- 不建插件 / npm / Docker 包装、不做多语言机制层。保持「bash + md + 一个安装脚本」。
+## roadmap
+- **下一步(已定待施工)**:install 改造为 `.workflow/` 统一布局 —— 见 `docs/dot-workflow-layout.md`。
+  它**取代**了原 `install.sh --prefix <子目录>` 设想(`docs/history/extraction-plan.md` 第五节):
+  用固定约定 `.workflow/` 取代可变前缀。zhidazhushou 迁移并入该方案第三步。
+- 不建插件 / npm / Docker 包装、不做多语言机制层。保持「bash + md + 一个安装脚本」(纪律③)。

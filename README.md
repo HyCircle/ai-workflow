@@ -33,4 +33,4 @@ cp .claude/workflow.env.example .claude/workflow.env    # 填模型/命令档
 ## 维护 / roadmap
 - 改机制只动本仓 → `install.sh` 推 / 重链消费项目(方向单一 kit → 项目)。维护流程见 `docs/MAINTAINERS.md`。
 - 改机制前先扫 `docs/failure-modes.md`(已知失效模式,留作纪律);原始证据在 `docs/history/`。
-- 待办:跨平台兼容打磨、`install.sh --prefix` 通用化(见 `docs/history/extraction-plan.md`)。机制层单一语言,不写双份。
+- 下一步(已定待施工):install 改造为 `.workflow/` 统一投影布局,见 `docs/dot-workflow-layout.md`(取代原 `--prefix` 设想)。机制层单一语言,不写双份。
