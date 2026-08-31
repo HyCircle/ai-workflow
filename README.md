@@ -1,7 +1,11 @@
-# workflow-kit —— 半自动多 agent 工作流(可移植机制)
+# ai-workflow —— 半自动多 agent 工作流(可移植机制)
+
+> A portable, semi-automated multi-agent workflow: four roles (bs / planner / finishing / cleaning),
+> cross-vendor heterogeneous dispatch + review, script- and git-hook gates, and an ADR doc system.
+> Installed into each project via `install.sh` and projected in. Mechanism lives here (single source of truth).
 
 把「bs / planner / finishing / cleaning 四角色 + 跨家族异构派单 / 验收 + 闸门(脚本 + git pre-commit) + ADR 文档系统」
-从 hubpage 提出来的**机制副本**,是将来独立成 repo、装进各项目的雏形。
+抽成的**独立机制仓**:机制的单一事实源在此,经 `install.sh` 装进 / 重链到各项目。
 
 ## 为什么单独一份
 `.claude/`、`scripts/workflow/`、`agent-discipline.md` 在每个项目里是**投影进来的 kit 副本**(本地忽略,不在原地进版本库)。
@@ -31,5 +35,7 @@ cp .claude/workflow.env.example .claude/workflow.env    # 填模型/命令档
 ## 新项目 bootstrap(还没 ADR 时)
 `install.sh` 已 seed 出 AGENTS.md(常驻纪律 + 文档地图)与 `decisions/0000-template.md`。再自己补空 `decisions/` 与 `TODO.md`、填 `.claude/workflow.env`;第一个架构选择直接走 `/bs` 著作 ADR-0001。冷启动清单里 architecture/TODO 可暂缺,读到什么算什么。
 
-## 后续
-机制 SOT 在本 kit;稳定后抽成独立 repo,补全跨平台兼容与中英 canonical 语言(机制层单一语言,不写双份)。
+## 维护 / roadmap
+- 改机制只动本仓 → `install.sh` 推 / 重链消费项目(方向单一 kit → 项目)。维护流程见 `docs/MAINTAINERS.md`。
+- 改机制前先扫 `docs/failure-modes.md`(已知失效模式,留作纪律);原始证据在 `docs/history/`。
+- 待办:跨平台兼容打磨、`install.sh --prefix` 通用化(见 `docs/history/extraction-plan.md`)。机制层单一语言,不写双份。

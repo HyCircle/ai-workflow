@@ -1,8 +1,8 @@
 # 工作流 + 文档系统设计蓝图
 
-> **这份文档是什么**:本工作流 + 文档系统的**设计权威 / rationale(为什么长这样)**,给人 / 维护者读。可运行的 SOT 是 `workflow-kit/` 的 skills / scripts / `git-hooks/` + `README.md`;本文只讲**为什么**,不复述**怎么调**。**agent 不读它**(它们读 `.claude/` 装入的副本)。
+> **这份文档是什么**:本工作流 + 文档系统的**设计权威 / rationale(为什么长这样)**,给人 / 维护者读。可运行的 SOT 是本仓的 skills / scripts / `git-hooks/` + `README.md`;本文只讲**为什么**,不复述**怎么调**。**agent 不读它**(它们读 `.claude/` 装入的副本)。
 >
-> **地位**:系统已按本设计建成并跑过(kit + ADR + architecture + TODO 均在)。它同时是将来抽取成独立模板仓、开源的主 guide;定稿与变更流程见 §4。
+> **地位**:系统已按本设计建成并跑过(kit + ADR + architecture + TODO 均在)。本仓即抽取出的独立机制仓、开源主 guide;定稿与变更流程见 §4。
 
 ---
 
