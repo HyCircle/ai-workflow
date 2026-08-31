@@ -17,10 +17,10 @@
 - `docs/MAINTAINERS.md`(本文)—— 维护流程。
 
 ## 改机制的门禁
-1. 改 `workflow-scripts/` / `git-hooks/` / `install.sh` → **本地先跑 CI 那套**:
-   - 4 个 bash 测试:`test_derive.sh`(18 例)/ `test_call_agent_stream.sh` / `test_intent_gate.sh` / `test_staged.sh`
-   - `check_docs.py` 自检
-   - `install.sh` 冒烟(装进临时 git repo,验投影 / `.git/info/exclude` / pre-commit 落位)
+1. 改 `workflow-scripts/` / `git-hooks/` / `install.sh` → **push 前本地跑 `bash workflow-scripts/tests/run-all.sh`,绿了再 push**。
+   跑五件:`test_derive`(18 例)/ `test_call_agent_stream` / `test_intent_gate` /
+   `test_staged`(即 check_docs 自检)/ `test_install_smoke`(装进临时 git repo 验投影 / exclude / pre-commit)。
+   solo 私有仓,不上 CI —— 靠这条本地纪律,不靠云端跑一遍。
 2. 触碰 derive / 双验收 / 越界 / 定位逻辑前,**先读 `docs/failure-modes.md`** 对应条目——那些坑填过一次。
 3. 新加代码别写疤痕注释(纪律⑥/FM-8):历史教训进 `docs/failure-modes.md`,代码里只留正面契约。
 

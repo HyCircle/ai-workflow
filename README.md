@@ -1,11 +1,6 @@
 # ai-workflow —— 半自动多 agent 工作流(可移植机制)
 
-> A portable, semi-automated multi-agent workflow: four roles (bs / planner / finishing / cleaning),
-> cross-vendor heterogeneous dispatch + review, script- and git-hook gates, and an ADR doc system.
-> Installed into each project via `install.sh` and projected in. Mechanism lives here (single source of truth).
-
-把「bs / planner / finishing / cleaning 四角色 + 跨家族异构派单 / 验收 + 闸门(脚本 + git pre-commit) + ADR 文档系统」
-抽成的**独立机制仓**:机制的单一事实源在此,经 `install.sh` 装进 / 重链到各项目。
+「bs / planner / finishing / cleaning 四角色 + 跨家族异构派单 / 验收 + 闸门(脚本 + git pre-commit) + ADR 文档系统」的**独立机制仓**:机制的单一事实源在此,经 `install.sh` 装进 / 重链到各项目。
 
 ## 为什么单独一份
 `.claude/`、`scripts/workflow/`、`agent-discipline.md` 在每个项目里是**投影进来的 kit 副本**(本地忽略,不在原地进版本库)。
