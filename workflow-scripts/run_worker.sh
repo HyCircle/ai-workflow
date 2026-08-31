@@ -191,7 +191,7 @@ if [ "${WO_REVIEW:-0}" != "1" ] && [ "${SKIP_REVIEW:-0}" != "1" ]; then
   PYTEST_RC=$?
   printf '%s\n' "$PYTEST_OUT" | tee -a "$LOG" >/dev/null
 
-  CHECK_DOCS_OUT="$(${WF_PY:-uv run python} "$SCRIPT_DIR/check_docs.py" --changed 2>&1)"
+  CHECK_DOCS_OUT="$(run_with_timeout "${WF_TIMEOUT_CHECK_DOCS:-120}" ${WF_PY:-uv run python} "$SCRIPT_DIR/check_docs.py" --changed 2>&1)"
   CHECK_DOCS_RC=$?
 fi
 
