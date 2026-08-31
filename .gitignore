@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+
+# 工作流临时产物
+/scratchpad/
+run.log
+
+# 本地配置(消费项目侧才有;kit 仓不该出现,兜底忽略)
+.claude/workflow.env

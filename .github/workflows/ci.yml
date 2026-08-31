@@ -1,0 +1,39 @@
+name: ci
+
+# 机制仓自身的测试门禁:改 workflow-scripts / git-hooks / install.sh 都过这一关。
+# check_docs 的自检由 test_staged.sh 覆盖(在合成 repo 上跑 check_docs --staged 验通过/拒收行为);
+# 不在本仓跑全仓 check_docs——kit 有意只带示例性 ADR-NNNN token、无自己的 decisions/,
+# 断链检查是给有真实 ADR 的消费仓用的。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      WF_PY: python3          # 避免 CI 依赖 uv;脚本本就 ${WF_PY:-uv run python}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash 语法(bash -n 全脚本)
+        run: |
+          fail=0
+          for f in $(git ls-files '*.sh'); do
+            bash -n "$f" && echo "ok $f" || { echo "SYNTAX FAIL $f"; fail=1; }
+          done
+          exit $fail
+
+      - name: check_docs AST 自检(python 能 import、不崩)
+        run: python3 -c "import ast,sys; ast.parse(open('workflow-scripts/check_docs.py').read()); print('check_docs.py parses ✓')"
+
+      - name: 单测四件套 + install 冒烟
+        run: |
+          set -e
+          bash workflow-scripts/tests/test_derive.sh
+          bash workflow-scripts/tests/test_call_agent_stream.sh
+          bash workflow-scripts/tests/test_intent_gate.sh
+          bash workflow-scripts/tests/test_staged.sh
+          bash workflow-scripts/tests/test_install_smoke.sh

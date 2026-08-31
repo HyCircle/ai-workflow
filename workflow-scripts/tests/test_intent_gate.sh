@@ -2,8 +2,9 @@
 # test_intent_gate.sh — run_worker 意图行闸门(不启 agent)。
 set -uo pipefail
 
-ROOT="$(git rev-parse --show-toplevel)"
-KIT_RW="$ROOT/workflow-kit/workflow-scripts/run_worker.sh"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+KIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+KIT_RW="$SCRIPT_DIR/run_worker.sh"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -58,7 +59,7 @@ else
 fi
 
 # settings.json 不含废弃 hook 条目
-if grep -rE 'check_wo_intent|doc_guard' "$ROOT/workflow-kit/claude/settings.json" >/dev/null 2>&1; then
+if grep -rE 'check_wo_intent|doc_guard' "$KIT_ROOT/claude/settings.json" >/dev/null 2>&1; then
   echo "✗ settings.json 仍引用废弃 hook 条目"
   FAIL=$((FAIL + 1))
 else

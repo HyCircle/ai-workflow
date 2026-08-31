@@ -2,8 +2,8 @@
 # test_staged.sh — check_docs --staged 读 index blob 而非工作树。
 set -uo pipefail
 
-ROOT="$(git rev-parse --show-toplevel)"
-CHECK_DOCS_SRC="$ROOT/workflow-kit/workflow-scripts/check_docs.py"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CHECK_DOCS_SRC="$SCRIPT_DIR/check_docs.py"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -28,14 +28,14 @@ status: accepted
 # ok
 EOF
 
-if uv run python scripts/workflow/check_docs.py --staged >/dev/null 2>&1; then
+if ${WF_PY:-uv run python} scripts/workflow/check_docs.py --staged >/dev/null 2>&1; then
   echo "✗ staged 非法 ADR 应非零"
   exit 1
 fi
 echo "✓ staged 非法(工作树合法) → 非零"
 
 git add decisions/0001-bad.md
-if uv run python scripts/workflow/check_docs.py --staged >/dev/null 2>&1; then
+if ${WF_PY:-uv run python} scripts/workflow/check_docs.py --staged >/dev/null 2>&1; then
   echo "✓ staged 合法 → 0"
 else
   echo "✗ staged 合法应退出 0"
