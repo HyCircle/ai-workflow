@@ -71,8 +71,8 @@
 - **skills 真源一份** = `.workflow/kit/skills`;给每个**只认自家目录**的后端各建一个入口指向真源
   (CC → `.claude/skills`、codex → `.agents/skills`);**cursor 不单建入口**(它蹭别人的)。
   仅含 cursor 的仓 → 借 `.claude/skills` 给它读。
-- **根发现文档**:`AGENTS.md`(+ `CLAUDE.md` → 软链)因**必须在仓根被 harness 发现**,留仓根
-  (no-track exclude、track tracked);其余设计资产收 `.workflow/`(它们无需根发现,`check_docs` 指哪读哪)。
+- **根发现文档**:`AGENTS.md` 是唯一全文真源、留仓根(no-track exclude、track tracked);`CLAUDE.md` 怎么给 CC
+  见「备选与失效模式」的**根文档双读决策树**(优先只留 `AGENTS.md`)。其余设计资产收 `.workflow/`(无需根发现,`check_docs` 指哪读哪)。
 
 ## 明确不做
 
@@ -81,14 +81,24 @@
 - 不为 cursor 单建 skills 入口。
 - 不建插件 / npm / Docker / 多语言机制层。保持「bash + md + 一个安装脚本」。
 
-## 备选与失效模式(唯二纸上定不死、必须拿真实 harness 实测)
+## 备选与失效模式
 
-1. **cursor 双读**:同一仓既建 `.agents`(codex)又用 cursor 时,cursor 会同读 `.claude` + `.agents`
-   两份 skills(codex 只认 `.agents` 的硬约束逼出,消不掉)。**实测**:cursor 双读是冗余无害,还是报冲突 / 混乱?
-   若有害 → 该仓的 backend 组合需取舍(codex 与 cursor 不同仓共存,或接受其一)。
-2. **harness 认不认仓内软链入口**:`.claude/skills → ../.workflow/kit/skills` 这类**仓内相对软链**,
-   CC / codex / cursor 认不认?(本仓已知:`.claude` 为**真实目录**时 CC + cursor 认,codex 不认 `.claude`。)
-   软链入口不认 → 退化为 **copy 真副本**(在 exclude 内,多份无妨,升级 install 覆盖)。
+**已实测(2026-08-31,用户在本仓建 `.agents` / `.cursor` 亲验):**
+- ✅ **skills:cursor 去重,不双读**。故 `.claude/skills`(CC)+ `.agents/skills`(codex)各一份**安全**,
+  cursor 只加载一次。(原「cursor 双读 skills」担忧**证伪**,删除。)
+- ❌ **根发现文档 md:cursor 双读**。`CLAUDE.md` 与 `AGENTS.md` 若都在且同内容(如软链),
+  cursor 把两份都注进上下文 = 冗余(非崩溃,但该消)。
+
+**根文档双读 —— 解法决策树(施工时按序实测,取第一个成立的):**
+1. **只留 `AGENTS.md`、删 `CLAUDE.md`**,看 CC 认不认 `AGENTS.md`。认 → 一份三家共读、零双读,**最优,到此为止**。
+2. (CC 必须 `CLAUDE.md`)`CLAUDE.md` 内容 = 一行 `@AGENTS.md`(CC 的 import 语法),看 cursor 展不展开 `@`:
+   不展开 → cursor 只多读一行、无冗余;`AGENTS.md` 仍是唯一全文真源。
+3. (cursor 会展开 `@`,或上面不成立)`.cursorignore` 排掉 `CLAUDE.md`,让 cursor 只读 `AGENTS.md`。
+4. 兜底:`CLAUDE.md` 软链 `AGENTS.md`,接受 cursor 双读一份(AGENTS 本就瘦,代价有限)。
+
+**仍待测:** harness 认不认**仓内软链 skills 入口**(`.claude/skills → ../.workflow/kit/skills`)。
+(本仓已知:`.claude` 为**真实目录**时 CC + cursor 认,codex 不认 `.claude` 目录。)不认则退 **copy 真副本**
+(在 exclude 内,多份无妨,升级 install 覆盖)。
 
 ## 后果
 
