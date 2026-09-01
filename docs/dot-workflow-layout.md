@@ -114,8 +114,12 @@
    刷新、不 stale);脚本读新布局(`check_docs` 的 `DECISIONS`、`run_worker` 的 scratch / discipline 注入路径、
    `call_agent` 的 ROOT 从 git-toplevel 假设改为「读 `.workflow/` 约定」);`test_install_smoke` 覆盖两模式 +
    backend 矩阵 + 切模式刷新;`README`/`MAINTAINERS`/`workflow.md` + 全 skill/seed 路径同步到新模型。
-2. **hubpage 重装**(track):新 install 装 → 迁掉当前 `--link` 根级布局(install 会自动清 legacy `workflow-kit`
-   exclude 块)→ 验 pre-commit / check_docs 链 + `run-all` + **在真消费仓实测 harness 认不认软链 skills 入口**(小旋钮④)。
+2. **hubpage 重装**(track):新 install 装 → 迁掉当前 `--link` 根级布局 → **一次性手清旧 `workflow-kit` exclude 块**
+   (install 只重写自己的 `ai-workflow BEGIN..END` 块,不碰旧散落布局的遗留块;下面一条 sed 清一次即可):
+   ```
+   sed -i '/workflow-kit(投影副本/,/^$/d' .git/info/exclude   # 删旧 marker 到下一空行
+   ```
+   → 验 pre-commit / check_docs 链 + `run-all` + **在真消费仓实测 harness 认不认软链 skills 入口**(小旋钮④)。
 3. **zhidazhushou 重装**(no-track):待其 monorepo 化到 root 后,新 install 装 → 删旧 `eval/` 手改补丁 →
    验 `test_derive` 18/18 + 一次 dry 派单。
    > **注(no-track 命名空间张力)**:exclude 对**已 tracked** 文件无效。若 develop 已有 tracked `AGENTS.md`,

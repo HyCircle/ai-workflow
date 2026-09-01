@@ -112,21 +112,14 @@ rm -f  "$DEST/.claude/hooks/check_wo_intent.sh" "$DEST/.claude/hooks/doc_guard.s
 rmdir  "$DEST/.claude/hooks" 2>/dev/null || true
 
 # ── 6. .git/info/exclude(BEGIN/END 界定 + 每次重写)+ pre-commit ──
-# 幂等**且随 mode/backend 刷新**:每次先删旧块再写当前块。否则「先 --track 后 --no-track 重装」会静默保留
-# 首次粒度,decisions/ 等设计资产漏进 exclude → 一个 git add -A 就违反 no-track「不进仓」。
+# 每次先删旧块再写当前块 → exclude 始终反映本次 --track/--no-track 与 --backends(切模式重装即刷新粒度)。
 if [ -d "$DEST/.git" ]; then
   EXCLUDE="$DEST/.git/info/exclude"
   BEGIN="# —— ai-workflow BEGIN(.workflow 投影 + 后端入口,本地忽略;install 生成,勿手改)——"
   END="# —— ai-workflow END ——"
   mkdir -p "$DEST/.git/info"; touch "$EXCLUDE"
-  # 删本工具的旧块(BEGIN..END,# 作 sed 分隔符避开路径里的 /)
+  # 删本工具的旧块(BEGIN..END,# 作 sed 分隔符避开路径里的 /),再写当前块
   sed -i '\#ai-workflow BEGIN#,\#ai-workflow END#d' "$EXCLUDE"
-  # 清旧散落布局的遗留块(legacy workflow-kit marker + 其后连续的空/以 / 开头的忽略行)
-  awk '
-    index($0, "workflow-kit(投影副本") { drop=1; next }
-    drop && ($0=="" || $0 ~ /^\//) { next }
-    { drop=0 } { print }
-  ' "$EXCLUDE" > "$EXCLUDE.tmp" && mv "$EXCLUDE.tmp" "$EXCLUDE"
   {
     echo "$BEGIN"
     if [ "$TRACK" = "1" ]; then

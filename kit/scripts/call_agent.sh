@@ -38,18 +38,8 @@ case "$SPEC" in
 esac
 
 PROMPT="$(cat "$@")"
-# 项目根(worker/验收员的工作目录 -C)按 .workflow 约定定位:从 cwd 上溯找含 .workflow/ 的目录,
-# 其身即项目根(monorepo 下 = gitroot)。找不到 → 退回 git-toplevel(kit 自研仓 / 无 .workflow 的旧布局)。
-_find_project_root () {
-  local d; d="$(pwd)"
-  while [ "$d" != "/" ]; do
-    [ -d "$d/.workflow" ] && { printf '%s' "$d"; return 0; }
-    d="$(dirname "$d")"
-  done
-  git rev-parse --show-toplevel 2>/dev/null
-}
-ROOT="$(_find_project_root)"
-[ -n "$ROOT" ] || { echo "✗ call_agent 须在 git 仓库内(或含 .workflow/ 的项目内)运行" >&2; exit 2; }
+# worker/验收员的工作目录(-C)= 项目根。约定 .workflow/ 恒在 gitroot,故项目根 = gitroot。
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "✗ call_agent 须在 git 仓库内运行" >&2; exit 2; }
 text=""; rc=0; usage=""; EXTRACT_RC=0
 
 _redact_stream_log () {

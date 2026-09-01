@@ -37,7 +37,7 @@ def _repo_root() -> Path:
 
 def _workflow_dir(root: Path) -> Path:
     """布局根:消费仓 = `<gitroot>/.workflow/`(约定优于配置);kit 自研仓无 `.workflow/` → 退回 gitroot。
-    设计资产(decisions/architecture.md/TODO.md)恒在此目录下,不搬家、不 symlink 到根。"""
+    设计资产(decisions/architecture.md/TODO.md)的家,位置固定在此。"""
     wf = root / ".workflow"
     return wf if wf.is_dir() else root
 
