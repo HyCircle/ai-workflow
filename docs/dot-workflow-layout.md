@@ -1,7 +1,7 @@
 # .workflow 统一投影布局 —— install 改造方案(已定;工单 #1 已落地)
 
-> **状态**:设计已定;**工单 #1(ai-workflow 本仓改造)已施工**(SOT 重组为 `kit/`、install 重写、脚本读新布局、
-> 测试覆盖两模式 + backend 矩阵、README/MAINTAINERS/workflow.md 同步)。#2 hubpage / #3 zhidazhushou 待办。施工顺序见文末。
+> **状态**:设计已定;**三张工单全部施工完毕**——#1 ai-workflow 本仓改造、#2 hubpage 重装(track,待用户 commit)、
+> #3 zhidazhushou 重装(no-track,零 tracked 影响)。施工顺序 / 各仓落地细节见文末。
 > **定位**:取代现行「投影进项目根(`.claude` / `scripts/workflow` / `agent-discipline.md` 散落根级)」的
 > install 模型,也取代 `docs/history/extraction-plan.md` 第五节的 `install.sh --prefix <子目录>` 设想
 > ——用**固定约定 `.workflow/`** 取代**可变前缀**,约定优于配置。
@@ -114,17 +114,18 @@
    刷新、不 stale);脚本读新布局(`check_docs` 的 `DECISIONS`、`run_worker` 的 scratch / discipline 注入路径、
    `call_agent` 的 ROOT 从 git-toplevel 假设改为「读 `.workflow/` 约定」);`test_install_smoke` 覆盖两模式 +
    backend 矩阵 + 切模式刷新;`README`/`MAINTAINERS`/`workflow.md` + 全 skill/seed 路径同步到新模型。
-2. **hubpage 重装**(track):新 install 装 → 迁掉当前 `--link` 根级布局 → **一次性手清旧 `workflow-kit` exclude 块**
-   (install 只重写自己的 `ai-workflow BEGIN..END` 块,不碰旧散落布局的遗留块;下面一条 sed 清一次即可):
-   ```
-   sed -i '/workflow-kit(投影副本/,/^$/d' .git/info/exclude   # 删旧 marker 到下一空行
-   ```
-   → 验 pre-commit / check_docs 链 + `run-all` + **在真消费仓实测 harness 认不认软链 skills 入口**(小旋钮④)。
-3. **zhidazhushou 重装**(no-track):待其 monorepo 化到 root 后,新 install 装 → 删旧 `eval/` 手改补丁 →
-   验 `test_derive` 18/18 + 一次 dry 派单。
-   > **注(no-track 命名空间张力)**:exclude 对**已 tracked** 文件无效。若 develop 已有 tracked `AGENTS.md`,
-   > install 只提示补 discipline 指针 → 那行进 tracked `AGENTS.md` = 进 develop,与「零污染」轻微冲突。
-   > #3 施工要么接受这行进仓、要么把指针放进 no-track 的 `.workflow/` 侧文档,施工时定。
+2. ✅ **hubpage 重装(已完成,待用户 commit)**(track):`git mv` 根级 tracked 设计资产(30 ADR + architecture.md +
+   TODO.md)进 `.workflow/`(rename 保历史)、`--link` 根级布局迁到 `.workflow/kit` copy、`CLAUDE.md` 软链→`@AGENTS.md`、
+   `.claude/workflow.env`→`.workflow/workflow.env`、AGENTS.md 路径同步、换新 pre-commit。**tracked 变更全 stage、未 commit**
+   (由用户 review 后提)。check_docs 认全 30 ADR ✓、exclude track 粒度无泄漏 ✓。
+   > 实测点(小旋钮④,harness 认不认软链 skills 入口)留待真跑一次 planner/skill 时验;当前只验了软链解析到真源。
+3. ✅ **zhidazhushou 重装(已完成)**(no-track):事实核实——其工作流资产**本就全在 `.git/info/exclude`、零 tracked**
+   (含 3 个真 ADR,符合 no-track「ADR 易失」),故重装**零 tracked 影响**、无「命名空间张力」问题(原担忧不成立)。
+   拆两条根软链 → 新 install 装到 git 根 → `mv` 3 ADR + architecture.md + TODO.md + workflow.env 进 `.workflow/`(全 untracked)
+   → 用干净 `.workflow/kit/scripts` 取代 `eval/scripts/workflow` 手改副本(旧 `eval/` 覆盖层留原地、用户按需清)。
+   `git status` 迁移前后均空 = tracked 树纹丝未动;check_docs 认 4 ADR ✓。
+   > 关键更正:zhidazhushou **未 monorepo 化**(工作流原装在 `eval/` 子目录),但因 worker `-C` 新旧都是 git 根、
+   > 设计资产又全 untracked,直接装到 git 根即可,无需先 monorepo 化——原「待 monorepo 化」前置被证不必要。
 
 ## 施工时才定的小旋钮(工单 #1 已拍板)
 
