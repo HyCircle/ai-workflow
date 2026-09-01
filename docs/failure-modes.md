@@ -20,7 +20,7 @@
   findings 块漏解析,四态派生出错。
 - **根因**:逐行**精确相等**匹配 marker + marker 判定顺序错(先判 opener,NONE 被当 opener 前缀)。
 - **规则**:读行**先 strip CR + 行尾空白**;marker 用 **contains** 匹配;**NONE 先判**再判 opener。
-- **在哪强制**:`workflow-scripts/tests/test_derive.sh` 补 4 例回归(glued opener / glued NONE / CRLF / 行尾空白);全套 18 例须绿。
+- **在哪强制**:`kit/scripts/tests/test_derive.sh` 补 4 例回归(glued opener / glued NONE / CRLF / 行尾空白);全套 18 例须绿。
 
 ## FM-2 · 双验收「容忍层」掩盖 infra 失败
 

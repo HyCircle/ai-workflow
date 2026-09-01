@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """文档结构守护(canonical)—— ADR frontmatter/命名校验 + `ADR-NNNN` 断链检查。
 
-决策活在 `decisions/NNNN-slug.md`,引用写 `ADR-NNNN`,断链 = 查 `decisions/NNNN-*` 在不在。
+决策活在 `.workflow/decisions/NNNN-slug.md`,引用写 `ADR-NNNN`,断链 = 查 `.workflow/decisions/NNNN-*` 在不在。
 
 **为什么用脚本不用手写 grep**:手写 `grep 'ADR-[0-9]'` 会因空格/子串/注释误报,
 分不清「本轮引入」与「存量」。脚本 = 唯一真相:正则精确、按结构化 frontmatter 校验、
 可选 `--changed` 只看本轮改动。
 
 用法:
-    uv run python scripts/workflow/check_docs.py            # 全仓
-    uv run python scripts/workflow/check_docs.py --changed  # 只检本轮 git 改动(验收用)
-    uv run python scripts/workflow/check_docs.py --staged   # 只检 index 待提交 blob(pre-commit 用)
+    uv run python .workflow/kit/scripts/check_docs.py            # 全仓
+    uv run python .workflow/kit/scripts/check_docs.py --changed  # 只检本轮 git 改动(验收用)
+    uv run python .workflow/kit/scripts/check_docs.py --staged   # 只检 index 待提交 blob(pre-commit 用)
 
 退出码:有违规 → 1,干净 → 0。
 """
@@ -35,8 +35,16 @@ def _repo_root() -> Path:
     return Path(r.stdout.strip())
 
 
+def _workflow_dir(root: Path) -> Path:
+    """布局根:消费仓 = `<gitroot>/.workflow/`(约定优于配置);kit 自研仓无 `.workflow/` → 退回 gitroot。
+    设计资产(decisions/architecture.md/TODO.md)恒在此目录下,不搬家、不 symlink 到根。"""
+    wf = root / ".workflow"
+    return wf if wf.is_dir() else root
+
+
 ROOT = _repo_root()
-DECISIONS = ROOT / "decisions"
+WF = _workflow_dir(ROOT)
+DECISIONS = WF / "decisions"
 
 VALID_STATUS = frozenset({"proposed", "accepted", "superseded", "deprecated"})
 

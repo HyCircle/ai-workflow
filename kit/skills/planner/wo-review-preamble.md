@@ -2,7 +2,7 @@
 唯一任务:对照工单顶部「本单服务 → ADR-NNNN」指向的那份 ADR,查这张 WO,把问题写成**结构化 findings**(机器读)+ 散文 body(给人读)。findings 只写你有权威的判断。
 
 ## 必须真做(禁凭空断言)
-1. **读那份 ADR**(工单意图行指向的 `decisions/NNNN-*` 或 scratchpad 里注明的 ADR):吃透它的意图、决策、边界、明确不做、失效模式。
+1. **读那份 ADR**(工单意图行指向的 `.workflow/decisions/NNNN-*` 或 scratchpad 里注明的 ADR):吃透它的意图、决策、边界、明确不做、失效模式。
 2. 逐条比对 WO 判据 vs ADR:
    - **判据够不够**:ADR 的每个失效模式/边界/硬上限,WO 有没有配一条能证伪的判据?漏一个 = blocking(即使 worker 满足这份 WO,那个失效模式仍无判据覆盖)。
    - **忠实展开**:WO 有没有擅自推翻/收窄 ADR 的决策,或塞进 ADR 没有的东西?偏离 = blocking。

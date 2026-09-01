@@ -1,7 +1,7 @@
 # 工单 WO-<ADR>-<N> — <一句话目标>
 
 <!--
-用法:复制 → scratchpad/PL-<id>/WO-current.md 填好 → 用户放行 → scripts/workflow/run_worker.sh。
+用法:复制 → .workflow/scratchpad/PL-<id>/WO-current.md 填好 → 用户放行 → .workflow/kit/scripts/run_worker.sh。
 编号:WO-<ADR 四位号>-<序号>(如 WO-0002-1;跟决策走,全局唯一)。
 怎么写工单见 /planner skill;两条最易忘:① 出单前 grep/read 核实所有 file:line/常量名(纪律④);② worker 派单时已附六条纪律 + 交付契约,别在工单里复述。
 -->
@@ -20,7 +20,7 @@
 
 ## 明确不做(防越界)
 - <本批不碰什么 / 留给哪个后续工单>
-- 红线:一行不许碰 `decisions/`·`architecture.md`·`AGENTS.md`(著作类文件;worker 只写代码 + scratchpad)
+- 红线:一行不许碰 `.workflow/decisions/`·`.workflow/architecture.md`·`AGENTS.md`(著作类文件;worker 只写代码 + scratchpad)
 
 ## ⚠️ 陷阱预判(planner 预判 worker 会怎么做错——最值钱的一节)
 - <照直做会踩的坑。例:别原地覆盖旧数据;for…else 裸 break;某字段是字符串不是 epoch;
@@ -36,5 +36,5 @@
 
 ## 验收(planner 会亲自跑;worker 报告前也须自测绿)
 - `$WF_TEST_CMD <具体路径>` —— 期望 <基线+新增> 全绿
-- ADR 结构/断链:`$WF_PY scripts/workflow/check_docs.py --changed`(canonical,用 python 不用 grep;`$WF_PY` 读 `.claude/workflow.env`)
+- ADR 结构/断链:`$WF_PY .workflow/kit/scripts/check_docs.py --changed`(canonical,用 python 不用 grep;`$WF_PY` 读 `.workflow/workflow.env`)
 - <本批特定的功能验收点>

@@ -59,7 +59,7 @@ else
 fi
 
 # settings.json 不含废弃 hook 条目
-if grep -rE 'check_wo_intent|doc_guard' "$KIT_ROOT/claude/settings.json" >/dev/null 2>&1; then
+if grep -rE 'check_wo_intent|doc_guard' "$KIT_ROOT/settings.json" >/dev/null 2>&1; then
   echo "✗ settings.json 仍引用废弃 hook 条目"
   FAIL=$((FAIL + 1))
 else

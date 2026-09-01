@@ -10,7 +10,7 @@
 #   派发统一走 call_agent.sh(worker=write、验收=read-only);本脚本只做编排。
 #   worker/验收 prompt 开头都会附上 agent-discipline.md(常驻六条纪律),不靠各 harness 的 AGENTS 自动加载。
 #
-# 用法:  scripts/workflow/run_worker.sh <工单文件> [执行模型] [审查模型] [审查模型2]
+# 用法:  .workflow/kit/scripts/run_worker.sh <工单文件> [执行模型] [审查模型] [审查模型2]
 #   默认(无 env flag): ①执行 + ②施工审(第4参给第二审 = 双验收并行)。
 #   环境变量 SKIP_REVIEW=1   : 跳过②(琐碎/小改分档用);越界校验仍跑。
 #   环境变量 REVIEW_ONLY=1   : 跳过①,只对当前工作树跑②。与 SKIP_REVIEW 互斥。
@@ -23,10 +23,14 @@ WO="${1:?用法: run_worker.sh <工单文件> [执行模型] [审查模型] [审
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 布局根:消费仓 = <gitroot>/.workflow(约定);kit 自研仓无 .workflow → 退回 gitroot。
+# KIT = 机制层(skills/scripts/agent-discipline.md);WF = 设计资产 + 本机配置 + scratch 的家。
+if [ -d "$ROOT/.workflow" ]; then WF="$ROOT/.workflow"; else WF="$ROOT"; fi
+KIT="$WF/kit"
 # shellcheck source=lib_timeout.sh
 . "$SCRIPT_DIR/lib_timeout.sh"
 
-[ -f "$ROOT/.claude/workflow.env" ] && . "$ROOT/.claude/workflow.env"
+[ -f "$WF/workflow.env" ] && . "$WF/workflow.env"
 
 MODEL="${2:-${WF_WORKER_MODEL:-cursor/composer-2.5}}"
 REVIEW_MODEL="${3:-${WF_REVIEW_MODEL:-cursor/gpt-5.6-luna-max}}"
@@ -72,19 +76,19 @@ if [ "${RUN_WORKER_INTENT_CHECK_ONLY:-0}" = "1" ]; then
   exit 0
 fi
 
-WORKER_PREAMBLE="$ROOT/.claude/skills/planner/worker-preamble.md"
-REVIEW_PREAMBLE="$ROOT/.claude/skills/planner/review-preamble.md"
-WO_REVIEW_PREAMBLE="$ROOT/.claude/skills/planner/wo-review-preamble.md"
+WORKER_PREAMBLE="$KIT/skills/planner/worker-preamble.md"
+REVIEW_PREAMBLE="$KIT/skills/planner/review-preamble.md"
+WO_REVIEW_PREAMBLE="$KIT/skills/planner/wo-review-preamble.md"
 if [ "${WO_REVIEW:-0}" = "1" ]; then
   [ -f "$WO_REVIEW_PREAMBLE" ] || { echo "✗ 缺 wo-review-preamble.md" >&2; exit 1; }
 else
   [ -f "$WORKER_PREAMBLE" ] && [ -f "$REVIEW_PREAMBLE" ] || { echo "✗ 缺 preamble 文件" >&2; exit 1; }
 fi
 
-mkdir -p scratchpad/runs
+mkdir -p "$WF/scratchpad/runs"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_ID="${STAMP}-$$"
-RUN_DIR="scratchpad/runs/${RUN_ID}"
+RUN_DIR="$WF/scratchpad/runs/${RUN_ID}"
 mkdir -p "$RUN_DIR"
 LOG="${RUN_DIR}/run.log"
 REPORT_FILE="${RUN_DIR}/report.md"
@@ -96,8 +100,8 @@ TIMEOUT_TEST="${WF_TIMEOUT_TEST:-600}"
 # 展开 preamble:开头附常驻六条纪律(不靠各 harness 的 AGENTS 自动加载,直接注进 prompt),再接 preamble 正文。
 _expand_preamble () {
   : > "$2"
-  if [ -f "$ROOT/agent-discipline.md" ]; then
-    cat "$ROOT/agent-discipline.md" >> "$2"
+  if [ -f "$KIT/agent-discipline.md" ]; then
+    cat "$KIT/agent-discipline.md" >> "$2"
     printf '\n\n' >> "$2"
   fi
   sed -e "s|__TEST_CMD__|${WF_TEST_CMD:-uv run pytest}|g" -e "s|__PY__|${WF_PY:-uv run python}|g" "$1" >> "$2"
@@ -170,7 +174,7 @@ OVERREACH=0
 if [ "${WO_REVIEW:-0}" != "1" ]; then
   while IFS= read -r path; do
     case "$path" in
-      decisions/*|AGENTS.md|architecture.md) OVERREACH=1 ;;
+      .workflow/decisions/*|.workflow/architecture.md|AGENTS.md) OVERREACH=1 ;;
     esac
   done < <(git diff --name-only HEAD; git ls-files --others --exclude-standard)
 fi

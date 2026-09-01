@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run-all.sh — 本地测试门禁:push 前跑一遍,绿了再 push(不上 CI,solo 项目靠本地纪律)。
-# 用法: bash workflow-scripts/tests/run-all.sh   [WF_PY 可覆盖 python,默认 uv run python]
+# 用法: bash kit/scripts/tests/run-all.sh   [WF_PY 可覆盖 python,默认 uv run python]
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 

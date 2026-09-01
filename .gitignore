@@ -6,5 +6,5 @@ __pycache__/
 /scratchpad/
 run.log
 
-# 本地配置(消费项目侧才有;kit 仓不该出现,兜底忽略)
-.claude/workflow.env
+# 本地配置(kit 自研时 workflow.env 落仓根;消费仓侧在 .workflow/,不入本仓)
+/workflow.env

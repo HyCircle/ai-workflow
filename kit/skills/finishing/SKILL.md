@@ -16,10 +16,10 @@ description: 收束当前 Claude session。出收尾总结 + 交棒(含本轮未
 `<UUID>` = 你 scratchpad 路径里那段**完整** uuid(与 `~/.claude/projects/…/<UUID>.jsonl` 同名)。目录就是本 session 的 planner/BS 开工时用同一个 `<UUID>` 建的那个(`PL-<UUID>`/`BS-<UUID>`);下面 `mkdir -p` 幂等,若已在则复用,别另起短名目录。角色前缀:planner 用 `PL`,BS 用 `BS`。
 
 ```bash
-mkdir -p scratchpad/<PL|BS>-<UUID>
-$WF_PY scripts/workflow/transcribe_session.py --session <UUID> --out scratchpad/<PL|BS>-<UUID>/transcript.md
+mkdir -p .workflow/scratchpad/<PL|BS>-<UUID>
+$WF_PY .workflow/kit/scripts/transcribe_session.py --session <UUID> --out .workflow/scratchpad/<PL|BS>-<UUID>/transcript.md
 ```
-(`$WF_PY` 读 `.claude/workflow.env`,与 planner / 脚本同源;换项目只动那一处。)
+(`$WF_PY` 读 `.workflow/workflow.env`,与 planner / 脚本同源;换项目只动那一处。)
 
 `--session` 必须是**完整 UUID**(脚本按 `<UUID>.jsonl` 精确匹配)。脚本:保全部自然语言;tool_use 压成 `[tool] Name({关键参数})` 骨架、连续纯工具 Assistant 段合并、丢 tool_result 正文与空 thinking;确定性、无 LLM、落盘前 best-effort 打码 secret。transcript 落 gitignored scratch、本地消费、随目录被 `/cleaning` 清除。脚本报错就把错贴给用户。
 

@@ -1,6 +1,7 @@
-# .workflow 统一投影布局 —— install 改造方案(已定,待施工)
+# .workflow 统一投影布局 —— install 改造方案(已定;工单 #1 已落地)
 
-> **状态**:设计已定(经数轮发散 + 砍伪需求收敛),待在本仓施工。施工顺序见文末。
+> **状态**:设计已定;**工单 #1(ai-workflow 本仓改造)已施工**(SOT 重组为 `kit/`、install 重写、脚本读新布局、
+> 测试覆盖两模式 + backend 矩阵、README/MAINTAINERS/workflow.md 同步)。#2 hubpage / #3 zhidazhushou 待办。施工顺序见文末。
 > **定位**:取代现行「投影进项目根(`.claude` / `scripts/workflow` / `agent-discipline.md` 散落根级)」的
 > install 模型,也取代 `docs/history/extraction-plan.md` 第五节的 `install.sh --prefix <子目录>` 设想
 > ——用**固定约定 `.workflow/`** 取代**可变前缀**,约定优于配置。
@@ -108,16 +109,25 @@
 
 ## 施工顺序(工单切分)
 
-1. **ai-workflow 本仓改造**:重写 `install.sh` 投影模型(`.workflow/` 布局、`--track`/`--no-track`、
-   `--backends`、`VERSION` 印记、两种 exclude 生成);脚本读新布局(`check_docs` 的 `DECISIONS`、`run_worker`
-   的 scratch / discipline 注入路径、`call_agent` 的 ROOT —— 从「git-toplevel 假设」改为「读 `.workflow/` 约定」);
-   `test_install_smoke` 覆盖新布局的两模式 + backend 矩阵;`README` / `MAINTAINERS` 主体同步到新模型。
-2. **hubpage 重装**(track):新 install 装 → 迁掉当前 `--link` 根级布局 → 验 pre-commit / check_docs 链 + `run-all`。
+1. ✅ **ai-workflow 本仓改造(已完成)**:SOT 重组为 `kit/`(与投影同构);重写 `install.sh` 投影模型(`.workflow/`
+   布局、`--track`/`--no-track`、`--backends`、`VERSION` 印记、exclude 用 BEGIN/END 界定**每次重写**——随 mode/backend
+   刷新、不 stale);脚本读新布局(`check_docs` 的 `DECISIONS`、`run_worker` 的 scratch / discipline 注入路径、
+   `call_agent` 的 ROOT 从 git-toplevel 假设改为「读 `.workflow/` 约定」);`test_install_smoke` 覆盖两模式 +
+   backend 矩阵 + 切模式刷新;`README`/`MAINTAINERS`/`workflow.md` + 全 skill/seed 路径同步到新模型。
+2. **hubpage 重装**(track):新 install 装 → 迁掉当前 `--link` 根级布局(install 会自动清 legacy `workflow-kit`
+   exclude 块)→ 验 pre-commit / check_docs 链 + `run-all` + **在真消费仓实测 harness 认不认软链 skills 入口**(小旋钮④)。
 3. **zhidazhushou 重装**(no-track):待其 monorepo 化到 root 后,新 install 装 → 删旧 `eval/` 手改补丁 →
    验 `test_derive` 18/18 + 一次 dry 派单。
+   > **注(no-track 命名空间张力)**:exclude 对**已 tracked** 文件无效。若 develop 已有 tracked `AGENTS.md`,
+   > install 只提示补 discipline 指针 → 那行进 tracked `AGENTS.md` = 进 develop,与「零污染」轻微冲突。
+   > #3 施工要么接受这行进仓、要么把指针放进 no-track 的 `.workflow/` 侧文档,施工时定。
 
-## 施工时才定的小旋钮
+## 施工时才定的小旋钮(工单 #1 已拍板)
 
-- `--backends` 默认值(不指定时建哪些)。
-- track 模式 `VERSION` 进不进 git(倾向进,团队可见装了哪版)。
-- backend 入口用软链 or copy —— 取决于「备选与失效模式」第 2 条的实测结果。
+- `--backends` 默认值 = **`cc`**(只建 `.claude`;cursor 蹭它,codex 需显式 `--backends cc,codex`)。
+- `--track` / `--no-track` 默认 = **`--track`**(设计资产版本化,安全默认;no-track 须显式声明)。
+- track 模式 `VERSION` **进 git**(团队可见装了哪版;它在 exclude 白名单外,自动 tracked)。
+- backend 入口 = **仓内相对软链**(`.claude/skills → ../.workflow/kit/skills`;`.agents/skills` 同)。
+  > **仍待消费仓实测**:harness(CC/codex)是否认这条仓内软链 skills 入口。不认 → install 退 copy 真副本
+  > (`_skills_entry` 里把 `ln -s` 换 `cp -r` 即可,exclude 已覆盖、多份无妨)。本仓测试只验软链**解析到真源**,
+  > 未验 harness 加载(需在装了后端的真消费仓里跑一次 planner/skill 才知)。

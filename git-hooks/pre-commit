@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# pre-commit — 校验待提交(index)文档结构,不读工作树。
-set -euo pipefail
-ROOT="$(git rev-parse --show-toplevel)"
-cd "$ROOT"
-[ -f "$ROOT/.claude/workflow.env" ] && . "$ROOT/.claude/workflow.env"
-exec ${WF_PY:-uv run python} scripts/workflow/check_docs.py --staged

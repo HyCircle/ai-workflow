@@ -28,7 +28,7 @@
 | 家 | 时态 | tracked? | 谁著作 | 谁维护 | 装什么 |
 |---|---|---|---|---|---|
 | **agent-discipline.md** | 全固化(kit) | ❌(kit 投影) | kit | 一字不改随项目走 | 常驻六条纪律 + 脊椎 |
-| **AGENTS.md** (+CLAUDE.md 软链) | 半固化 | ✅ | 人 / 模板 | 少动 | 项目工具约定 + 文档地图 + 指向 discipline |
+| **AGENTS.md** (+CLAUDE.md=@AGENTS.md) | 半固化 | ✅ | 人 / 模板 | 少动 | 项目工具约定 + 文档地图 + 指向 discipline |
 | **architecture.md** | 活(慢层) | ✅ | bs/人 | cleaning 提 diff、人审 | 当前设计现状/地图 |
 | **decisions/** (ADR) | 冻结(只增) | ✅ | bs/planner(Claude) | 不可变,仅翻状态位 | 一决策一 ADR:why+可测契约+证据 |
 | **TODO.md** | 活(排空) | ✅ | planner/人 | cleaning 删已完成 | 扁平有序的"下一步" |
@@ -36,11 +36,11 @@
 
 ### 1.1 常驻纪律(agent-discipline.md)+ 项目壳(AGENTS.md)
 **全固化核与半固化壳拆成两个物理文件**:
-- **agent-discipline.md** = **全固化核**(六条纪律 + 脊椎),**kit 拥有、一字不改随项目走**。像 skills/scripts 一样**投影**进各项目(gitignored 副本 / symlink 共读),版本管理只在 kit。这样(a)纪律单源、随 kit 更新;(b)装进**已有 AGENTS.md** 的项目时,不覆盖它的 AGENTS.md,只投影 discipline + 补一行指针。
-- **AGENTS.md** = **半固化壳**(项目工具约定 → 指向 `.claude/workflow.env`;文档地图;顶部一行指向 discipline),项目自己拥有。
+- **agent-discipline.md** = **全固化核**(六条纪律 + 脊椎),**kit 拥有、一字不改随项目走**。像 skills/scripts 一样随 `kit/` 整包 **copy** 进各项目 `.workflow/kit/`(本地忽略副本),版本管理只在 kit。这样(a)纪律单源、随 kit 更新;(b)装进**已有 AGENTS.md** 的项目时,不覆盖它的 AGENTS.md,只补一行指针指向 `.workflow/kit/agent-discipline.md`。
+- **AGENTS.md** = **半固化壳**(项目工具约定 → 指向 `.workflow/workflow.env`;文档地图;顶部一行指向 discipline),项目自己拥有,留仓根(`CLAUDE.md` = 一行 `@AGENTS.md` import)。
 - **纪律怎么到 agent 手里**:交互 harness 读 AGENTS.md(指针)+ skills「开工先读」列 discipline;**worker/验收**由 `run_worker.sh` 把 discipline **注进 prompt 开头**(不靠各 harness 的 AGENTS 自动加载,保证送达)。
 - **入选核的三重判据**(三个都 yes 才留在 discipline):① 每 session 都要读?② 数周不变?③ 普适(非项目专属)。项目专属的挪去 AGENTS 壳 / skill / architecture。
-- **CLAUDE.md** = 软链接到 AGENTS.md(给 Claude Code 认);单源,不是第二份要维护的文档。若 harness 直接认 AGENTS.md 可省掉它。
+- **CLAUDE.md** = 一行 `@AGENTS.md`(CC 的 import 语法,展开得 AGENTS.md 全文);单源,不是第二份要维护的文档。**不用软链**(实测 cursor 会把软链的 CLAUDE.md 与 AGENTS.md 双读进上下文 = 冗余;import 行则只多读一行)。install 生成这一行。
 
 ### 1.2 architecture.md(活地图,只装慢层)
 - 只装**慢层**:模块边界、数据模型、关键不变量、对外契约、全局地图、术语。几周才动一次 → 同步成本低。
@@ -126,18 +126,18 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 
 - **WO 意图行**(闸门3):每张 WO 顶部 `本单服务 → ADR-NNNN`(改工作流机制本身的单指 `workflow.md §N`),缺 / 指向不可核实的锚(如 slug-ADR)则 `run_worker.sh` 入口拒派;只收 `ADR-NNNN`(check_docs 能验断链)与 `workflow.md`(kit 的 durable 权威,恒在),用户扫这行拦跑偏。
 - **异构验收**(闸门4):worker 与 verifier 跨厂异构;**拆两专项**——WO 审(派 worker 前审 WO-vs-ADR)+ 施工审(派 worker 后审 diff-vs-WO,经 diff 暴露的 WO 缺陷仍可报)。verifier 只提交结构化 findings,放行状态由脚本纯派生(§2.5)。
 
-### 2.4 每个组件的设计规范(HOW 的 SOT = `.claude/skills/*`,这里只记 why 层取舍)
+### 2.4 每个组件的设计规范(HOW 的 SOT = `.workflow/kit/skills/*`,这里只记 why 层取舍)
 四角色 bs/planner/finishing/cleaning 的操作细节权威在各自 skill;本节只留不落在 skill 里的**设计取舍**:
 - **bs vs planner 分脑**:bs 发散(≥3 真不同 + 红队),planner 冻结脑 + 切 WO;同一强模型「出设计又派单」共同盲区不互查,故设两道异构红队 + 两道人审(§2.3)。
 - **验收员 ≠ worker 模型家族**:异构才是真独立第二双眼;高危双验收第二审尤其不能同家族。
 - **闸门在动作处,单实现、可移植**:意图行校验在 `run_worker.sh` 派单入口、著作类文件越界校验在 worker 执行之后(跳过验收也跑)、文档结构校验在 git `pre-commit`(校验 index 待提交内容)。**同一逻辑单实现**(一处触发,不在多处重复),移植到 Cursor/Codex 等 harness 时闸门照在。
-- **scripts 3+1 + 1 git hook**:`run_worker.sh`(四模式派单:施工+施工审 / SKIP_REVIEW / REVIEW_ONLY / WO_REVIEW;内化意图/越界闸门;把放行状态**对不可变输入纯派生**成一个 `STATUS:` 四态,退出码只有 `infra_failed` 非零;把 discipline 注进 worker/验收 prompt 开头;外呼流式只落 run.log)、`check_docs.py`(ADR 结构/断链 canonical,`--changed` 看工作树 / `--staged` 看 index blob;仓根按 **git toplevel** 定位,故 symlink 共读时也扫对消费仓)、`transcribe_session.py`(session JSONL→markdown transcript);`call_agent.sh` 是外呼公共入口(CLI 原生流式 + 分角色超时杀整树)。git `pre-commit` 跑 `check_docs --staged`。scratch GC 折进 cleaning,不单独成脚本。
+- **scripts 3+1 + 1 git hook**:`run_worker.sh`(四模式派单:施工+施工审 / SKIP_REVIEW / REVIEW_ONLY / WO_REVIEW;内化意图/越界闸门;把放行状态**对不可变输入纯派生**成一个 `STATUS:` 四态,退出码只有 `infra_failed` 非零;把 discipline 注进 worker/验收 prompt 开头;外呼流式只落 run.log)、`check_docs.py`(ADR 结构/断链 canonical,`--changed` 看工作树 / `--staged` 看 index blob;仓根按 **git toplevel**、设计资产按 **`.workflow/decisions` 约定**定位)、`transcribe_session.py`(session JSONL→markdown transcript);`call_agent.sh` 是外呼公共入口(CLI 原生流式 + 分角色超时杀整树)。git `pre-commit` 跑 `check_docs --staged`。scratch GC 折进 cleaning,不单独成脚本。
 
 ### 2.5 强制机制(不靠纪律;背书三条结构律)
 - **著作不追加(律1)**:著作类文件(`decisions/`、`architecture.md`、`AGENTS.md`)**只 Claude 层动**,worker 授权写面只限代码 + scratchpad。越界校验**由 `run_worker.sh` 在 worker 执行后亲跑**(跳过验收也跑),产出机器事实喂进放行派生。
 - **验收可信 = 判定不由模型持有(闸门4)**:验收模型**只写它有权威的东西**(结构化 findings:发现了什么);身份 / 机器事实(pytest·越界·check_docs)/ 最终放行状态一律由 `run_worker.sh` 按一条可计算式**从不可变输入纯派生**成四态(`review_complete|blocked|skipped|infra_failed`)。**一个判定源**——机器事实脚本亲产、放行状态脚本派生、退出码只 `infra_failed` 非零,planner 直读验收报告不再转述。**验收员跨厂 ≠ worker**;**revision = worker 改完后对验收对象树取 hash**(含 untracked);WO 审 hash 工单内容。
   - **finding 结构 = sentinel 块**(每条 `<<<FINDING…FINDING>>>`,字段各占一行、值可含冒号引号、无嵌套转义):E5 实测 sentinel/jsonl 干净率 100%、yaml-fence 50%(整块 ScannerError),sentinel 再以「无转义负担 + 人读性」破 jsonl 的平局。冻语义(severity/where/claim/failure_scenario;blocking 须指名具体错误结果,否则为 nit)+ 这个语法;坏一块只跳一块。**nit 不进派生式,但 derive 必列 nit 自曝清单**(where+claim 逐条),供 planner 可选采纳、让「被降级为 nit 的东西」可见。
-  - **双验收弹性**:两员并行、blocking 取并集。任一验收员无有效产出(缺失/空/不可解析)→ 该轮无验收结论,整轮 infra_failed + 自曝;回显仍展示存活验收员的单子,planner 用 `REVIEW_ONLY=1` 重派验收(工作树冻结,不重跑 worker)。重派 = 只重跑验收:`REVIEW_ONLY=1 scripts/workflow/run_worker.sh <WO> <验收模型…>`;重派单员把第 3 参设为该员模型、省略第 4 参,重跑整组就带原两模型。
+  - **双验收弹性**:两员并行、blocking 取并集。任一验收员无有效产出(缺失/空/不可解析)→ 该轮无验收结论,整轮 infra_failed + 自曝;回显仍展示存活验收员的单子,planner 用 `REVIEW_ONLY=1` 重派验收(工作树冻结,不重跑 worker)。重派 = 只重跑验收:`REVIEW_ONLY=1 .workflow/kit/scripts/run_worker.sh <WO> <验收模型…>`;重派单员把第 3 参设为该员模型、省略第 4 参,重跑整组就带原两模型。
 - **planner 只裁决不转述(D3)**:放行状态是**信息态,不硬闸 commit**(solo commit 可逆,裁量权归 planner)。**裁决不进派生式**——派生只看 findings + 机器事实,故 `review_blocked` **不随裁决翻转**;planner 对每条 blocking 出 修/驳回+理由/转 ADR,驳回与跳过亲验的理由随 commit 落库(可复核),判所有 blocking 已裁决即放行,STATUS 保持 blocked 无妨。
 - **验收拆两专项(D5)**:WO 审(派 worker 前,只读 WO+ADR)+ 施工审(派 worker 后,diff-vs-WO);坏 WO 在派 worker 前拦下。复审 = 收窄的新派发、逐条闭合上轮 blocking(D4),无模型维护的跨轮状态。
 - **闸门加深不加数**:与其多盖章,不如让保留的那道真看——planner 对契约/热路径**看 diff**(§2.4),别只扫意图行。
@@ -167,4 +167,4 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 
 
 **此后对工作流本身的改动**:改 `workflow-kit/` 的 skills/scripts/discipline → `install.sh` 推项目;可运行 SOT = kit 文件,changelog = git 历史。本文只保留「现在为什么这么设计」,改完同步到最新结论即可,不留改动流水账。**改工作流机制本身的 WO 意图行指 `workflow.md §N`**(kit 的 durable 权威;kit 不给自己编号 ADR)。
 
-**可移植性(投影 + 共读 + 本地忽略)**:`.claude/skills`、`scripts/workflow`、`agent-discipline.md` **投影进消费项目**。`install.sh` 两种模式:默认 **copy**(冻结快照,Windows 稳;只在 kit 改,再 `install.sh` 推项目);`--link` **symlink 共读**(项目指向 kit 单源,改 kit 即时生效、免重装)。忽略项写进 **`.git/info/exclude`**(本地、不污染消费项目 tracked 的 `.gitignore`),装进已有项目零改其版本库。`.cursor/.codex` 的内容投影待从那些 harness 驱动 planner 时再补。
+**可移植性(统一 `.workflow/` 投影 + 本地忽略)**:一个消费仓的全部工作流产物收进根下唯一的 `.workflow/`——机制层 `.workflow/kit/`(skills / scripts / agent-discipline.md,`kit/` 整包 **copy** 快照)+ 设计资产(`.workflow/decisions` / `architecture.md` / `TODO.md`)+ 本机配置 `.workflow/workflow.env` + `.workflow/scratchpad`。**只 copy、不 symlink 单源**(symlink 让所有消费仓被动跟版本,对生产仓危险;每仓按需重跑 `install.sh` 升级,`.workflow/VERSION` 记版本)。skills 真源一份 = `.workflow/kit/skills`,给只认自家目录的后端(CC→`.claude/skills`、codex→`.agents/skills`)各建软链入口;cursor 全能蹭别人不单建。根发现文档 `AGENTS.md` 留仓根,`CLAUDE.md` = 一行 `@AGENTS.md`。忽略项写进 **`.git/info/exclude`**(本地、不污染 tracked `.gitignore`),两种粒度:**track**(设计资产版本化,只排 `/.workflow/kit/` + `workflow.env` + `scratchpad`)/ **no-track**(整个 `/.workflow/` + 根发现文档不版本化)。布局定案见 `docs/dot-workflow-layout.md`。

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# pre-commit — 校验待提交(index)文档结构,不读工作树。
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+# 布局根:消费仓 = <gitroot>/.workflow(约定);kit 自研仓无 .workflow → 退回 gitroot。
+if [ -d "$ROOT/.workflow" ]; then WF="$ROOT/.workflow"; else WF="$ROOT"; fi
+[ -f "$WF/workflow.env" ] && . "$WF/workflow.env"
+exec ${WF_PY:-uv run python} "$WF/kit/scripts/check_docs.py" --staged
