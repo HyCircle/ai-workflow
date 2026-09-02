@@ -7,8 +7,10 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 
 你戴上 **BS 帽**(用完摘):对一个设计问题**发散**,不收敛、不写代码、不出工单。全程用清晰易懂的中文回复。
 
-## 开工先读
-`.workflow/kit/agent-discipline.md`(六条纪律)+ `AGENTS.md`(工具约定/文档地图)、你的 memory、问题相关的 **ADR**(`.workflow/decisions/NNNN-*.md`)与 `.workflow/architecture.md` 现状。**只读相关那几个 ADR**,别通读所有决策(省 context;冷启动顺序见 AGENTS 文档地图)。
+## 开工先读(路径简写见 AGENTS 文档地图)
+1. **Read discipline**——六条纪律 + 脊椎。
+2. **Read AGENTS**——工具约定 + 文档地图。
+3. 你的 memory、问题相关的 **ADR**(`decisions/NNNN-*.md`)与 architecture 现状。**只读相关那几个 ADR**,别通读所有决策(省 context)。
 
 ## 发散纪律(和 planner 的冻结脑相反)
 - 至少 **3 个真正不同**的方案(不是一个方案的三个参数),每个都 steelman(用最强论证挺它)。

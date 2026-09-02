@@ -1,5 +1,8 @@
 # ai-workflow 独立仓抽取规划（分析 + 计划）
 
+> **已废弃(历史归档)**:本规划中的 `install.sh --prefix` / `eval/` 前缀布局已被固定 `.workflow/` 取代。
+> 现行 install 与布局见 `README.md`、`docs/dot-workflow-layout.md`。下文仅作演进证据保留。
+
 > 状态：规划已定，待新 session 执行。执行完成后本文随抽取归档（并入新仓 docs/ 或删除）。
 > 关联：同目录 `workflow-kit-diagnosis-report.md` = 本机制此前的诊断与修复执行记录（含两侧同步明细），抽取时一并带走。
 

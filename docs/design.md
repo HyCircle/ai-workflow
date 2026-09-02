@@ -1,8 +1,8 @@
 # 工作流 + 文档系统设计蓝图
 
-> **这份文档是什么**:本工作流 + 文档系统的**设计权威 / rationale(为什么长这样)**,给人 / 维护者读。可运行的 SOT 是本仓的 skills / scripts / `git-hooks/` + `README.md`;本文只讲**为什么**,不复述**怎么调**。**agent 不读它**(它们读 `.claude/` 装入的副本)。
+> **这份文档是什么**:本工作流 + 文档系统的**设计权威 / rationale(为什么长这样)**,给人 / 维护者读。可运行的 SOT 是本仓 `kit/`(skills / scripts / `kit/git-hooks/`) + `README.md`;本文只讲**为什么**,不复述**怎么调**。**agent 不读它**(它们读 discipline + `AGENTS.md` + 后端 skills 入口)。
 >
-> **地位**:系统已按本设计建成并跑过(kit + ADR + architecture + TODO 均在)。本仓即独立机制仓、开源主 guide;定稿与变更流程见 §4。
+> **地位**:系统已按本设计建成并跑过。投影布局见 `docs/dot-workflow-layout.md`;定稿与变更流程见 §4。
 
 ---
 
@@ -24,19 +24,20 @@
 ## 1. 文档系统:五个家 + 别名
 
 一类信息一个家,按**时态**切分。状态不单立仪表盘文件(见 §1.6)。
+**消费仓物理路径**:下表用短名;完整简写 ↔ 真路径见消费仓 **AGENTS 文档地图**。
 
 | 家 | 时态 | tracked? | 谁著作 | 谁维护 | 装什么 |
 |---|---|---|---|---|---|
-| **agent-discipline.md** | 全固化(kit) | ❌(kit 投影) | kit | 一字不改随项目走 | 常驻六条纪律 + 脊椎 |
+| **discipline.md** | 全固化(kit) | ❌(kit 投影) | kit | 一字不改随项目走 | 常驻六条纪律 + 脊椎 |
 | **AGENTS.md** (+CLAUDE.md=@AGENTS.md) | 半固化 | ✅ | 人 / 模板 | 少动 | 项目工具约定 + 文档地图 + 指向 discipline |
 | **architecture.md** | 活(慢层) | ✅ | bs/人 | cleaning 提 diff、人审 | 当前设计现状/地图 |
 | **decisions/** (ADR) | 冻结(只增) | ✅ | bs/planner(Claude) | 不可变,仅翻状态位 | 一决策一 ADR:why+可测契约+证据 |
 | **TODO.md** | 活(排空) | ✅ | planner/人 | cleaning 删已完成 | 扁平有序的"下一步" |
 | **scratchpad/** | ephemeral | ❌ | worker/planner | GC | WO、验收单、run 日志、transcript、临时脚本 |
 
-### 1.1 常驻纪律(agent-discipline.md)+ 项目壳(AGENTS.md)
+### 1.1 常驻纪律(discipline.md)+ 项目壳(AGENTS.md)
 **全固化核与半固化壳拆成两个物理文件**:
-- **agent-discipline.md** = **全固化核**(六条纪律 + 脊椎),**kit 拥有、一字不改随项目走**。像 skills/scripts 一样随 `kit/` 整包 **copy** 进各项目 `.workflow/kit/`(本地忽略副本),版本管理只在 kit。这样(a)纪律单源、随 kit 更新;(b)装进**已有 AGENTS.md** 的项目时,不覆盖它的 AGENTS.md,只补一行指针指向 `.workflow/kit/agent-discipline.md`。
+- **discipline.md** = **全固化核**(六条纪律 + 脊椎),**kit 拥有、一字不改随项目走**。像 skills/scripts 一样随 `kit/` 整包 **copy** 进各项目 `.workflow/kit/`(本地忽略副本),版本管理只在 kit。这样(a)纪律单源、随 kit 更新;(b)装进**已有 AGENTS.md** 的项目时,不覆盖它的 AGENTS.md,只补文档地图指向 `.workflow/kit/discipline.md`。
 - **AGENTS.md** = **半固化壳**(项目工具约定 → 指向 `.workflow/workflow.env`;文档地图;顶部一行指向 discipline),项目自己拥有,留仓根(`CLAUDE.md` = 一行 `@AGENTS.md` import)。
 - **纪律怎么到 agent 手里**:交互 harness 读 AGENTS.md(指针)+ skills「开工先读」列 discipline;**worker/验收**由 `run_worker.sh` 把 discipline **注进 prompt 开头**(不靠各 harness 的 AGENTS 自动加载,保证送达)。
 - **入选核的三重判据**(三个都 yes 才留在 discipline):① 每 session 都要读?② 数周不变?③ 普适(非项目专属)。项目专属的挪去 AGENTS 壳 / skill / architecture。
@@ -123,7 +124,7 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 
 ### 2.3 闸门(异构 + 人审,堵同源盲区)
 - **人审意图层**(闸门1):bs 把各 ADR 意图行聚一屏给用户,他有产品意图,一屏否掉不合理设计。
 - **红队 ADR**(闸门2):**任何 ADR 冻结前**,交异构只读模型审一遍(单轮)——契约自洽、判据能证伪、没搬真代码、没为不存在的边缘写东西。bs 冻在纸面、动工前;planner 冻在实现里决定成熟的当下。
-- **WO 意图行**(闸门3):每张 WO 顶部 `本单服务 → ADR-NNNN`(改工作流机制本身的单指 `workflow.md §N`),缺 / 指向不可核实的锚(如 slug-ADR)则 `run_worker.sh` 入口拒派;只收 `ADR-NNNN`(check_docs 能验断链)与 `workflow.md`(kit 的 durable 权威,恒在),用户扫这行拦跑偏。
+- **WO 意图行**(闸门3):每张 WO 顶部 `本单服务 → ADR-NNNN`;缺 / 指向不可核实的锚(如 slug-ADR)则 `run_worker.sh` 入口拒派。只收 `ADR-NNNN`(check_docs 能验断链),用户扫这行拦跑偏。
 - **异构验收**(闸门4):worker 与 verifier 跨厂异构;**拆两专项**——WO 审(派 worker 前审 WO-vs-ADR)+ 施工审(派 worker 后审 diff-vs-WO,经 diff 暴露的 WO 缺陷仍可报)。verifier 只提交结构化 findings,放行状态由脚本纯派生(§2.5)。
 
 ### 2.4 每个组件的设计规范(HOW 的 SOT = `.workflow/kit/skills/*`,这里只记 why 层取舍)
@@ -165,6 +166,4 @@ cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 
 
 低概率项只作文档约束(§2.6),不建机制——工作流遵守「少即是多」脊椎。
 
-**此后对工作流本身的改动**:改 `workflow-kit/` 的 skills/scripts/discipline → `install.sh` 推项目;可运行 SOT = kit 文件,changelog = git 历史。本文只保留「现在为什么这么设计」,改完同步到最新结论即可,不留改动流水账。**改工作流机制本身的 WO 意图行指 `workflow.md §N`**(kit 的 durable 权威;kit 不给自己编号 ADR)。
-
-**可移植性(统一 `.workflow/` 投影 + 本地忽略)**:一个消费仓的全部工作流产物收进根下唯一的 `.workflow/`——机制层 `.workflow/kit/`(skills / scripts / agent-discipline.md,`kit/` 整包 **copy** 快照)+ 设计资产(`.workflow/decisions` / `architecture.md` / `TODO.md`)+ 本机配置 `.workflow/workflow.env` + `.workflow/scratchpad`。**只 copy、不 symlink 单源**(symlink 让所有消费仓被动跟版本,对生产仓危险;每仓按需重跑 `install.sh` 升级,`.workflow/VERSION` 记版本)。skills 真源一份 = `.workflow/kit/skills`,给只认自家目录的后端(CC→`.claude/skills`、codex→`.agents/skills`)各建软链入口;cursor 全能蹭别人不单建。根发现文档 `AGENTS.md` 留仓根,`CLAUDE.md` = 一行 `@AGENTS.md`。忽略项写进 **`.git/info/exclude`**(本地、不污染 tracked `.gitignore`),两种粒度:**track**(设计资产版本化,只排 `/.workflow/kit/` + `workflow.env` + `scratchpad`)/ **no-track**(整个 `/.workflow/` + 根发现文档不版本化)。布局定案见 `docs/dot-workflow-layout.md`。
+**此后对工作流本身的改动**:改本仓 `kit/` 的 skills/scripts/discipline → `install.sh` 推消费项目;可运行 SOT = kit 文件,changelog = git 历史。本文只保留「现在为什么这么设计」,改完同步到最新结论即可,不留改动流水账。**本仓改机制不走消费仓 WO 意图闸门**——维护者直接改 `kit/` + 跑 `kit/scripts/tests/run-all.sh`(见 `docs/MAINTAINERS.md`);消费仓 WO 意图行只认 `ADR-NNNN`。

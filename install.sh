@@ -72,8 +72,13 @@ fi
 
 # 根发现文档:AGENTS.md = 唯一全文真源(留仓根);CLAUDE.md = 一行 @AGENTS.md(CC import,不再软链)。
 if [ -f "$DEST/AGENTS.md" ]; then
-  grep -q 'agent-discipline' "$DEST/AGENTS.md" || \
-    echo "⚠ $DEST/AGENTS.md 已存在但未引用 agent-discipline —— 请在顶部加一行指向 .workflow/kit/agent-discipline.md"
+  if grep -qE '\.workflow/kit/discipline(\.md)?' "$DEST/AGENTS.md"; then
+    :
+  elif grep -q 'agent-discipline' "$DEST/AGENTS.md"; then
+    echo "⚠ $DEST/AGENTS.md 仍引用旧名 agent-discipline —— 请改为 .workflow/kit/discipline.md,并核对文档地图表"
+  else
+    echo "⚠ $DEST/AGENTS.md 已存在但文档地图可能未指向 discipline —— 请核对 .workflow/kit/discipline.md"
+  fi
 else
   cp "$KIT_SRC/seed/AGENTS.md" "$DEST/AGENTS.md"
 fi
@@ -106,7 +111,7 @@ if [ "$HAS_CC" = "1" ]; then
 fi
 
 # ── 5. 旧布局残留清理(从散落投影迁移到 .workflow/ 时;都是 kit 独占命名,安全删)──
-rm -f  "$DEST/agent-discipline.md" "$DEST/.claude/workflow.env.example"
+rm -f  "$DEST/agent-discipline.md" "$WF/kit/agent-discipline.md" "$DEST/.claude/workflow.env.example"
 rm -rf "$DEST/scripts/workflow"; rmdir "$DEST/scripts" 2>/dev/null || true
 rm -f  "$DEST/.claude/hooks/check_wo_intent.sh" "$DEST/.claude/hooks/doc_guard.sh"
 rmdir  "$DEST/.claude/hooks" 2>/dev/null || true

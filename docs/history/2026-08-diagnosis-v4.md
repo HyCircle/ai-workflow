@@ -1,6 +1,8 @@
 # workflow-kit 修复执行记录（v4 · 已实施）
 
-> 两侧同步完成：`workflow-kit/`（SOT）与消费项目 `zhidazhushou`（eval/ 前缀投影）逐文件镜像，差异仅剩 eval/ 布局的结构性适配（EVAL_ROOT、DECISIONS 路径）。所有脚本 `bash -n` 通过、`check_docs.py` AST 通过、`test_derive.sh` 双侧 18/18 全绿。
+> **历史归档**:下文含抽取前的双侧同步与旧布局细节;**非现行 install 规范**。现行见 `docs/dot-workflow-layout.md`。
+
+> 两侧同步完成：`workflow-kit/`（SOT）与消费项目（eval/ 前缀投影）逐文件镜像，差异仅剩 eval/ 布局的结构性适配（EVAL_ROOT、DECISIONS 路径）。所有脚本 `bash -n` 通过、`check_docs.py` AST 通过、`test_derive.sh` 双侧 18/18 全绿。
 
 ## P0 — derive 解析加固（真 bug 修复）
 
@@ -59,4 +61,4 @@
 
 ## 保持不动（确认过，不属无效机制）
 
-- codex/cursor 双后端（你要的）；install.sh 的旧 `.claude/hooks/` 升级清理（升级路径卫生）；`.git/info/exclude` 的 `/.cursor/` `/.codex/` 忽略项；WO 审/双验收并行/意图闸门/check_docs/四态派生等有真实消费者的机制。
+- codex/cursor 双后端（你要的）；install.sh 的旧 `.claude/hooks/` 升级清理（升级路径卫生）；`.git/info/exclude` 的 `/.cursor/` `/.agents/` 忽略项；WO 审/双验收并行/意图闸门/check_docs/四态派生等有真实消费者的机制。

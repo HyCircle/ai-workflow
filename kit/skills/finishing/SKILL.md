@@ -9,7 +9,7 @@ description: 收束当前 Claude session。出收尾总结 + 交棒(含本轮未
 **你只做:出总结/交棒 + 转写会话。决定的冻结不在这儿**——ADR 在决定成熟的当下由 bs/planner 就地冻(自带单轮红队);finishing 只把「本轮稳了但还没冻」的决定列进交棒当候选。**文档维护(architecture / TODO / 死链 / scratch 清理)全部交 Cursor 侧 `/cleaning`。**
 
 ## ① 出总结 + 交棒(≤~10 行,作为助手回复;在转写之前)
-给用户一段【本会话总结 + 下 session 开场提示词】:做完什么、卡在哪、下个 session 冷启动带的最小上下文(指针为主,冷启动顺序:agent-discipline → AGENTS → architecture → TODO → 相关 ADR)。**本轮若有稳定但还没冻的决定,列一行候选**(下次由 bs/planner 就地冻)。**末尾固定一段可复制的「下 session 开场提示词」**——转写后它在 transcript 尾部,下 session 直接复制,或读 transcript 尾部定位。
+给用户一段【本会话总结 + 下 session 开场提示词】:做完什么、卡在哪、下个 session 冷启动带的最小上下文(指针为主,冷启动顺序:discipline → AGENTS → architecture → TODO → 相关 ADR)。**本轮若有稳定但还没冻的决定,列一行候选**(下次由 bs/planner 就地冻)。**末尾固定一段可复制的「下 session 开场提示词」**——转写后它在 transcript 尾部,下 session 直接复制,或读 transcript 尾部定位。
 交棒只进会话、不落文件:转写保全部自然语言(含本条总结与用户对 /finishing 的要求),transcript 就是交棒的文档。
 
 ## ② 转写会话 → transcript(最后一步)

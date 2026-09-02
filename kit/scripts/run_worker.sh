@@ -8,7 +8,7 @@
 #                模型、省略第 4 参;工作树冻结,不重跑 worker)。
 #   回到 planner 的**只有**:STATUS + findings 摘要(含 nit 自曝清单)+ 机器事实 + 验收单 + git stat + token 用量。
 #   派发统一走 call_agent.sh(worker=write、验收=read-only);本脚本只做编排。
-#   worker/验收 prompt 开头都会附上 agent-discipline.md(常驻六条纪律),不靠各 harness 的 AGENTS 自动加载。
+#   worker/验收 prompt 开头都会附上 discipline.md(常驻六条纪律),不靠各 harness 的 AGENTS 自动加载。
 #
 # 用法:  .workflow/kit/scripts/run_worker.sh <工单文件> [执行模型] [审查模型] [审查模型2]
 #   默认(无 env flag): ①执行 + ②施工审(第4参给第二审 = 双验收并行)。
@@ -24,7 +24,7 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 布局根:消费仓 = <gitroot>/.workflow(约定);kit 自研仓无 .workflow → 退回 gitroot。
-# KIT = 机制层(skills/scripts/agent-discipline.md);WF = 设计资产 + 本机配置 + scratch 的家。
+# KIT = 机制层(skills/scripts/discipline.md);WF = 设计资产 + 本机配置 + scratch 的家。
 if [ -d "$ROOT/.workflow" ]; then WF="$ROOT/.workflow"; else WF="$ROOT"; fi
 KIT="$WF/kit"
 # shellcheck source=lib_timeout.sh
@@ -61,10 +61,9 @@ _check_wo_intent () {
     echo "✗ 闸门:工单 $wo_file 缺「本单服务 → ADR-…」意图对齐行" >&2
     return 1
   fi
-  # 只接受可核对存在性的 durable 决策锚:产品单指 ADR-NNNN(check_docs 能验断链);
-  # kit 自身工作指 workflow.md(kit 的 durable 设计权威,恒在)。
-  if ! printf '%s' "$intent" | grep -qE 'ADR-[0-9]{4}|workflow\.md'; then
-    echo "✗ 闸门:工单 $wo_file 的「本单服务」意图行未指向 ADR-NNNN 或 workflow.md" >&2
+  # 只接受可核对存在性的 durable 决策锚:ADR-NNNN(check_docs 能验断链)。
+  if ! printf '%s' "$intent" | grep -qE 'ADR-[0-9]{4}'; then
+    echo "✗ 闸门:工单 $wo_file 的「本单服务」意图行未指向 ADR-NNNN" >&2
     return 1
   fi
   return 0
@@ -100,8 +99,8 @@ TIMEOUT_TEST="${WF_TIMEOUT_TEST:-600}"
 # 展开 preamble:开头附常驻六条纪律(不靠各 harness 的 AGENTS 自动加载,直接注进 prompt),再接 preamble 正文。
 _expand_preamble () {
   : > "$2"
-  if [ -f "$KIT/agent-discipline.md" ]; then
-    cat "$KIT/agent-discipline.md" >> "$2"
+  if [ -f "$KIT/discipline.md" ]; then
+    cat "$KIT/discipline.md" >> "$2"
     printf '\n\n' >> "$2"
   fi
   sed -e "s|__TEST_CMD__|${WF_TEST_CMD:-uv run pytest}|g" -e "s|__PY__|${WF_PY:-uv run python}|g" "$1" >> "$2"

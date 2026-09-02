@@ -20,7 +20,7 @@ else
   echo "✓ 无意图行 WO 拒派(非零)"
 fi
 
-# ADR-NNNN(产品单)与 workflow.md(kit 自身工作)都是合法 durable 锚 → 通过意图校验桩
+# ADR-NNNN 是合法 durable 锚 → 通过意图校验桩
 good_wo="$TMP/good-wo.md"
 cat > "$good_wo" <<'EOF'
 # 好工单
@@ -33,30 +33,20 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-kit_wo="$TMP/kit-wo.md"
-cat > "$kit_wo" <<'EOF'
-# kit 工单
-- **本单服务 → workflow.md §2.5 的意图**: 测试
-EOF
-if RUN_WORKER_INTENT_CHECK_ONLY=1 "$KIT_RW" "$kit_wo" >/dev/null 2>&1; then
-  echo "✓ workflow.md 意图行通过(kit 自身工作)"
-else
-  echo "✗ workflow.md 意图行应通过"
-  FAIL=$((FAIL + 1))
-fi
-
-# slug-ADR(无法核实存在性)→ 应拒派
-slug_wo="$TMP/slug-wo.md"
-cat > "$slug_wo" <<'EOF'
-# slug 工单
-- **本单服务 → ADR-some-slug 的意图**: 测试
-EOF
-if RUN_WORKER_INTENT_CHECK_ONLY=1 "$KIT_RW" "$slug_wo" >/dev/null 2>&1; then
-  echo "✗ slug-ADR 意图行应拒派(check_docs 无从核实)"
-  FAIL=$((FAIL + 1))
-else
-  echo "✓ slug-ADR 意图行拒派"
-fi
+# 非 ADR-NNNN 锚 → 拒派
+_reject_intent () {
+  local file_id="$1" label="$2" body="$3"
+  local f="$TMP/reject-$file_id.md"
+  printf '%s' "$body" > "$f"
+  if RUN_WORKER_INTENT_CHECK_ONLY=1 "$KIT_RW" "$f" >/dev/null 2>&1; then
+    echo "✗ $label 意图行应拒派"
+    FAIL=$((FAIL + 1))
+  else
+    echo "✓ $label 拒派"
+  fi
+}
+_reject_intent design-md docs/design.md $'# kit\n- **本单服务 → docs/design.md §2.5 的意图**: 测试\n'
+_reject_intent slug-adr slug-ADR $'# slug\n- **本单服务 → ADR-some-slug 的意图**: 测试\n'
 
 # settings.json 不含废弃 hook 条目
 if grep -rE 'check_wo_intent|doc_guard' "$KIT_ROOT/settings.json" >/dev/null 2>&1; then

@@ -4,7 +4,7 @@
 > 改机制前先扫一遍:别把已经填过的坑重新踩一遍。
 >
 > **面向谁**:kit 维护者(改本仓的人)。**不投影进消费项目** —— 消费者面向的常驻宪法是
-> `agent-discipline.md`(六条纪律),那份一字不带这里的维护教训。
+> `discipline.md`(六条纪律),那份一字不带这里的维护教训。
 >
 > **和纪律⑥(刻疤清理)的关系**:纪律⑥ 禁的是**代码/文档里的疤痕注释**(「不再手搓 X——那套有 Y 竞态」之类)。
 > 一份专门的复盘登记册不是疤痕注释,是前瞻规则,故合规。写这里、别写进代码。
@@ -42,7 +42,7 @@
 - **症状**:为「裁决记录」「交棒」各建一个 md 台账,和 git/transcript 双重记账、易漂移。
 - **规则**:**裁决/驳回/跳过亲验的理由随 commit message 落库**;**交棒 = finishing 的 transcript 本身**
   (助手回复进会话 → 转写成 scratch transcript,尾部固定「下 session 开场提示词」段)。不建独立台账。
-- **在哪强制**:机制已删;`workflow.md` §2.1/§2.5/§2.6、`planner/SKILL.md`、`finishing/SKILL.md` 引用点已改写。
+- **在哪强制**:机制已删;`docs/design.md` §2.1/§2.5/§2.6、`planner/SKILL.md`、`finishing/SKILL.md` 引用点已改写。
 
 ## FM-5 · worker 自报 pytest 结果 —— 既冗余又不可信
 
@@ -72,7 +72,7 @@
   或「(这是 vibe coding 的头号翻车点)」这类情绪化旁注。
 - **规则**:删疤痕注释,改**正面陈述当前契约**(「thinking/assistant 增量一律不当报告」而非「绝不静默产出碎片当报告」)。
   历史教训写进**本文件**,不写进代码。
-- **在哪强制**:`lib_timeout.sh` / `call_agent.sh` / `agent-discipline.md` 已清;新代码 review 时照此把关。
+- **在哪强制**:`lib_timeout.sh` / `call_agent.sh` / `discipline.md` 已清;新代码 review 时照此把关。
 
 ---
 
@@ -80,5 +80,5 @@
 
 - codex/cursor **双后端**(有意的跨厂异构第二双眼)。
 - `install.sh` 里对旧 `.claude/hooks/` 残留的升级清理(升级路径卫生)。
-- `.git/info/exclude` 的 `/.cursor/` `/.codex/` 忽略项。
+- `.git/info/exclude` 的 `/.cursor/` `/.agents/` 忽略项。
 - WO 审 / 双验收并行 / 意图闸门 / check_docs / 四态派生 —— 均有真实消费者。

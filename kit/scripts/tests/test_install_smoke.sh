@@ -20,7 +20,7 @@ mkdir -p "$DEST"; git init -q "$DEST"
 # 机制层落位
 [ -d "$DEST/.workflow/kit/skills" ]                 && _ok "[track] .workflow/kit/skills"        || _no "[track] kit/skills 缺失"
 [ -f "$DEST/.workflow/kit/scripts/run_worker.sh" ]  && _ok "[track] kit/scripts/run_worker.sh"   || _no "[track] kit/scripts 缺失"
-[ -f "$DEST/.workflow/kit/agent-discipline.md" ]    && _ok "[track] kit/agent-discipline.md"     || _no "[track] agent-discipline 缺失"
+[ -f "$DEST/.workflow/kit/discipline.md" ]         && _ok "[track] kit/discipline.md"          || _no "[track] discipline.md 缺失"
 [ -f "$DEST/.workflow/kit/settings.json" ]          && _ok "[track] kit/settings.json"           || _no "[track] settings.json 缺失"
 [ -f "$DEST/.workflow/kit/workflow.env.example" ]   && _ok "[track] kit/workflow.env.example"    || _no "[track] workflow.env.example 缺失"
 

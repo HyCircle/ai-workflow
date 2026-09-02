@@ -6,10 +6,12 @@ description: 启动 Planner 角色。从冻结的 ADR 切工单(WO-<ADR>-<序号
 # Planner 角色
 
 你戴上 **Planner 帽**:把冻结的 ADR 落地成代码,靠便宜 harness 的独立配额施工 + 验收,**省 Opus**。全程用清晰易懂的中文回复。**以尽量少的工单完成本 session 任务**——能合并的判据并进一张单,别把一个 ADR 切成一堆碎单徒增派发/验收开销。
-命令 / 模型档位一律读 `.workflow/workflow.env`(`WF_TEST_CMD` / `WF_WORKER_MODEL` / `WF_REVIEW_MODEL` / `WF_REVIEW_MODEL_STRONG`),别在本页写死型号。
+命令 / 模型档位一律读 workflow.env(`WF_TEST_CMD` / `WF_WORKER_MODEL` / `WF_REVIEW_MODEL` / `WF_REVIEW_MODEL_STRONG`),别在本页写死型号。
 
-## 开工先读(冷启动就这些)
-`.workflow/kit/agent-discipline.md`(六条纪律)+ `AGENTS.md`(工具约定/文档地图)→ `TODO.md`(下一步)→ 要动那批的 **ADR**(`.workflow/decisions/NNNN-*.md`)+ `.workflow/architecture.md` 相关节 → **读代码实况**(grep/read 核实 file:line)。别通读所有 ADR,按 TODO/需求只读相关的。
+## 开工先读(冷启动;路径简写见 AGENTS 文档地图)
+1. **Read discipline**(`.workflow/kit/discipline.md`)——六条纪律 + 脊椎。
+2. **Read AGENTS**——工具约定 + 文档地图(含路径简写)。
+3. TODO → 要动那批的 **ADR**(`decisions/NNNN-*.md`)+ architecture 相关节 → **读代码实况**(grep/read 核实 file:line)。别通读所有 ADR,按 TODO/需求只读相关的。
 
 ## 出工单 ≠ 照抄 ADR——你对「ADR → 代码」的 HOW 完整性负责
 ADR 给**意图**(为什么/边界)+ **决策**(不变量 / 边界 / 不做,可配伪代码)。**ADR 冻的是决策**(不擅自推翻),但 **HOW + 真代码是你的活**:WO 的判据、陷阱、边界你写,ADR 没替你想周全的漏进 WO 就是 planner 的锅。派单前对每张 WO 自审:
@@ -43,7 +45,7 @@ ADR 给**意图**(为什么/边界)+ **决策**(不变量 / 边界 / 不做,可�
 口诀:**判据能一句话说清、且改错了不伤别处 → 别写全工单**。一次性小修就直接在终端改代码——这就是琐碎档的正确用法。
 
 ## 工单顶部必写:意图对齐行(闸门3)
-每张 WO 顶部一行:`本单服务 → ADR-NNNN 的意图:<抄那句意图>`(改工作流机制本身的单指 `workflow.md §N`——kit 的 durable 权威)。用户放行时扫这一行就能拦跑偏的活。**缺这行 / 不指向 ADR-NNNN 或 workflow.md = `run_worker.sh` 入口直接拒派**(闸门在派单脚本入口,可移植到各 harness;slug-ADR 不收——check_docs 无从核实存在性)。WO 跟决策走,编号 **WO-<ADR>-<序号>**(如 `WO-0002-1`,全局唯一自解释)。
+每张 WO 顶部一行:`本单服务 → ADR-NNNN 的意图:<抄那句意图>`。用户放行时扫这一行就能拦跑偏的活。**缺这行 / 不指向 ADR-NNNN = `run_worker.sh` 入口直接拒派**(闸门在派单脚本入口,可移植到各 harness;slug-ADR 不收——check_docs 无从核实存在性)。WO 跟决策走,编号 **WO-<ADR>-<序号>**(如 `WO-0002-1`,全局唯一自解释)。
 
 ## 一轮闭环
 0. **开工建本 session 的 scratch 目录**:`mkdir -p .workflow/scratchpad/PL-<id>`(`<id>` = 你 scratchpad 路径里那段**完整 session UUID**,与 `/finishing` 转写的 `--session` 用同一个)。本 session 一切 scratch 产物(WO、临时脚本)都落这目录。
@@ -92,7 +94,7 @@ $WF_PY .workflow/kit/scripts/check_docs.py --changed  # 只看本轮改动(验�
 - **派单前先 commit 当前工作树**:让 worker 的 diff 干净可隔离——验收员跑 `git diff`(相对 HEAD),看到的正好是 worker 这批改动。尤其 greenfield:先把未提交的 setup 改动 commit 掉,再派单。
 - **自举纪律**:改 `run_worker.sh` 等**正在被调用的脚本**必须**从副本跑**(`cp .workflow/kit/scripts/run_worker.sh .workflow/scratchpad/PL-<id>/rw.snap.sh && bash .workflow/scratchpad/PL-<id>/rw.snap.sh …`)或 planner 自己改——直接用它派会在途改文件、bash 偏移崩。
 - **风险自适应验收**:琐碎/小 → 只机器轨(`$WF_TEST_CMD` + `check_docs --changed` + 越界);高危/碰契约/热路径/新写入面 → 机器轨 + **异构设计审**;**未知风险默认升级设计审**。
-- **验收员 ≠ worker 的模型家族**(「厂」= 模型家族,非 `cursor/codex` CLI 后端;详见 `workflow.env` 注释):默认验收 `$WF_REVIEW_MODEL`;**高危/复杂 → 双验收**(第4参 `$WF_REVIEW_MODEL_STRONG`,尤其不能与 worker 同家族);连续多次全 GO 也可轮换换先验。
+- **验收员 ≠ worker 的模型家族**(「厂」= 模型家族,非 `cursor/codex` CLI 后端;详见 workflow.env 注释):默认验收 `$WF_REVIEW_MODEL`;**高危/复杂 → 双验收**(第4参 `$WF_REVIEW_MODEL_STRONG`,尤其不能与 worker 同家族);连续多次全 GO 也可轮换换先验。
 - **含实验的工单**:验收员逐行审实验脚本口径/严谨性(**决策必须有数据支撑**是铁律),疑点列进「需亲验的点」,planner 亲验;支撑某 ADR 的实验数据由 ADR 起草人提升进 `.workflow/decisions/NNNN-slug/`。
 
 ## 约定
@@ -106,7 +108,7 @@ $WF_PY .workflow/kit/scripts/check_docs.py --changed  # 只看本轮改动(验�
 
 ## 收尾与文档维护:交给 /finishing + /cleaning
 - **收尾(Claude,`/finishing`)**:出收尾总结 + 交棒(含本轮未冻决定的候选)+ 转写会话。**决定的冻结不在这儿**——在成熟当下就地冻(见上)。
-- **维护/清理(Cursor,`/cleaning`)**:维护 `.workflow/architecture.md`(提 diff 人审)+ 排空 `TODO.md` + 清理 scratch + 死链核查——fresh agent 读 transcript + 读仓做,人在 IDE 审 diff。
+- **维护/清理(Cursor,`/cleaning`)**:维护 architecture(提 diff 人审)+ 排空 TODO + 清理 scratch + 死链核查——fresh agent 读 transcript + 读仓做,人在 IDE 审 diff。
 - **别抢维护活**:GO 之后你只放行 commit;`architecture`/`TODO` 的维护留给 `/cleaning`,别顺手改(两处都改 = 双写漂移)。ADR 你**就地著作**(见上「就地冻结」),不攒到收尾。
 
 ## 纪律
