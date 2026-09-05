@@ -20,10 +20,10 @@ description: Cursor/composer 侧的回溯性文档维护与清理。读本 sessi
 ### 路径 A — 直接执行(机械 / 易失项)
 确定性、无判断、或有 canonical 工具背书的,直接做:
 - **清 scratch 角色目录**:本 session 的 `.workflow/scratchpad/<PL|BS>-<sessionid>/` 整目录清(含 transcript.md)。当前这一轮先留着——留一轮给用户回看本 session 的 options/红队,**后续** cleaning 再随目录清。
-- **run 目录 GC**(几行 find):`.workflow/scratchpad/runs/<run-id>/` 里**有 `.done` 的只保留最近 N 个(默认 20)**,其余删(`.done` 由派单脚本 touch)。失败/中断没 `.done` 的,诊断价值没了你判断补删。
+- **run 目录 GC**(几行 find):`.workflow/scratchpad/runs/<run-id>/` 里**有 `.done` 的只保留最近 N 个(默认 10)**,其余删(`.done` 由派单脚本 touch)。失败/中断没 `.done` 的,诊断价值没了你判断补删。
   ```bash
-  # 保留最近 20 个已完成 run,其余带 .done 的删(在跑/失败无 .done 的一律留)
-  ls -1dt .workflow/scratchpad/runs/*/ 2>/dev/null | while read d; do [ -f "$d/.done" ] && echo "$d"; done | tail -n +21 | xargs -r rm -rf
+  # 保留最近 10 个已完成 run,其余带 .done 的删(在跑/失败无 .done 的一律留)
+  ls -1dt .workflow/scratchpad/runs/*/ 2>/dev/null | while read d; do [ -f "$d/.done" ] && echo "$d"; done | tail -n +11 | xargs -r rm -rf
   ```
 - **死链核查**:跑 `$WF_PY .workflow/kit/scripts/check_docs.py`(canonical:ADR frontmatter + ADR-NNNN 断链;精确正则,比手写 grep 可靠)。`$WF_PY` 等命令档读 `.workflow/workflow.env`(与 planner / 脚本同源,换项目只动那一处)。
 

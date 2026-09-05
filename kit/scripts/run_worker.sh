@@ -33,7 +33,7 @@ KIT="$WF/kit"
 [ -f "$WF/workflow.env" ] && . "$WF/workflow.env"
 
 MODEL="${2:-${WF_WORKER_MODEL:-cursor/composer-2.5}}"
-REVIEW_MODEL="${3:-${WF_REVIEW_MODEL:-cursor/gpt-5.6-luna-max}}"
+REVIEW_MODEL="${3:-${WF_REVIEW_MODEL:-cursor/cursor-grok-4.6-high}}"
 REVIEW_MODEL_2="${4:-}"
 
 CALL_AGENT="$SCRIPT_DIR/call_agent.sh"

@@ -74,7 +74,7 @@
 ### 1.5 scratchpad/(ephemeral,gitignored)
 - session 分目录:`PL-<uuid>` / `BS-<uuid>`(完整 session UUID);派单产物 `runs/<run-id>`(时间戳+PID,并发唯一)。
 - 装:WO、worker report、验收单、run.log、transcript、临时脚本。
-- **GC**:cleaning 例程留最近 N 个(默认 20)有 `.done` 的 run、其余删(几行 find,不单独成脚本),随后清 session 目录。
+- **GC**:cleaning 例程留最近 N 个(默认 10)有 `.done` 的 run、其余删(几行 find,不单独成脚本),随后清 session 目录。
 
 ### 1.6 没有 STATE 仪表盘文档
 状态不单立一个仪表盘文件:冷启动读 AGENTS(地图)+ architecture(现状)+ TODO(下一步)+ 相关 ADR 就够。各类状态各归其家——已冻契约 → ADR + architecture;候选 / 当前活跃 → TODO;悬而未决 → TODO 或 proposed 的 ADR;已知地雷 → **代码本地注释** + AGENTS 项目铁律。手抄进单一仪表盘只会与这些真源双写漂移。
