@@ -4,11 +4,12 @@
 
 ## 为什么这么设计(极简)
 
-- **分层套利**:贵的模型只做规划与判断;执行 / 验收 / 文档维护交给便宜 harness。
+- **按收益分工**:负责人自主选择自做或委派，按结果质量、交接、返工与外呼的总成本判断收益。
 - **著作,不追加**:长期知识各归其家(ADR / architecture / AGENTS / discipline);worker 只写代码 + scratchpad,不往中央池堆。
-- **durable / ephemeral 分离**:决策与证据进 git;工单 / 验收单 / run 日志进 scratchpad,消费完 GC。
-- **闸门在脚本**:意图行、越界、文档结构由 `run_worker.sh` + `pre-commit` 单点强制,不靠各 harness 自觉。
-- **按任务分诊**:琐碎活直接改或 `SKIP_REVIEW`;复杂 / 高危才走全 WO + 异构双验收。
+- **durable / ephemeral 分离**:决策与证据进 git;工单 / brief 快照 / 验收单 / run 日志进 scratchpad,消费完 GC。
+- **闸门在脚本**:目标行、越界、文档结构由 `run_worker.sh` + `pre-commit` 单点强制,不靠各 harness 自觉。
+- **按任务分诊**:planner 分别判断不确定性、风险和委派收益，再选择自做、短 brief 委派、定向审查或双审。
+- **对结果负责**:先取得与当前不确定性对应的反馈；worker 提交结果、偏离和矛盾的短报告，planner 自主核实整体与关键调用链。
 
 完整 rationale、文档五家、闭环与 derive 语义见 **[docs/design.md](docs/design.md)**(给人 / 维护者读,不 seed 进消费项目、agent 不引用)。
 

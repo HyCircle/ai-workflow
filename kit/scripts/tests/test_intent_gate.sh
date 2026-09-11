@@ -1,59 +1,45 @@
 #!/usr/bin/env bash
-# test_intent_gate.sh — run_worker 意图行闸门(不启 agent)。
-set -uo pipefail
-
+# 派单真实入口的目标检查；不调用模型。
+set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-KIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 KIT_RW="$SCRIPT_DIR/run_worker.sh"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-FAIL=0
+git init -q "$TMP/repo"
+cd "$TMP/repo"
 
-# 无意图行 → 拒派非零
-bad_wo="$TMP/bad-wo.md"
-printf '# 坏工单\n无意图行\n' > "$bad_wo"
-if "$KIT_RW" "$bad_wo" 2>/dev/null; then
-  echo "✗ 无意图行 WO 应非零退出"
-  FAIL=$((FAIL + 1))
-else
-  echo "✓ 无意图行 WO 拒派(非零)"
-fi
-
-# ADR-NNNN 是合法 durable 锚 → 通过意图校验桩
-good_wo="$TMP/good-wo.md"
-cat > "$good_wo" <<'EOF'
-# 好工单
-- **本单服务 → ADR-0007 的意图**: 测试
-EOF
-if RUN_WORKER_INTENT_CHECK_ONLY=1 "$KIT_RW" "$good_wo" >/dev/null 2>&1; then
-  echo "✓ ADR-NNNN 意图行通过"
-else
-  echo "✗ ADR-NNNN 意图行应通过"
-  FAIL=$((FAIL + 1))
-fi
-
-# 非 ADR-NNNN 锚 → 拒派
-_reject_intent () {
-  local file_id="$1" label="$2" body="$3"
-  local f="$TMP/reject-$file_id.md"
-  printf '%s' "$body" > "$f"
-  if RUN_WORKER_INTENT_CHECK_ONLY=1 "$KIT_RW" "$f" >/dev/null 2>&1; then
-    echo "✗ $label 意图行应拒派"
-    FAIL=$((FAIL + 1))
+check () {
+  local expected="$1" label="$2" body="$3" rc=0
+  printf '%s' "$body" > "$TMP/brief.md"
+  RUN_WORKER_INTENT_CHECK_ONLY=1 "$KIT_RW" "$TMP/brief.md" >"$TMP/output" 2>&1 || rc=$?
+  if { [ "$expected" = accept ] && [ "$rc" -eq 0 ]; } ||
+     { [ "$expected" = reject ] && [ "$rc" -ne 0 ] && grep -q '需要非空' "$TMP/output"; }; then
+    echo "✓ $label"
   else
-    echo "✓ $label 拒派"
+    echo "✗ $label (rc=$rc)"
+    cat "$TMP/output"
+    exit 1
   fi
 }
-_reject_intent design-md docs/design.md $'# kit\n- **本单服务 → docs/design.md §2.5 的意图**: 测试\n'
-_reject_intent slug-adr slug-ADR $'# slug\n- **本单服务 → ADR-some-slug 的意图**: 测试\n'
 
-# settings.json 不含废弃 hook 条目
-if grep -rE 'check_wo_intent|doc_guard' "$KIT_ROOT/settings.json" >/dev/null 2>&1; then
-  echo "✗ settings.json 仍引用废弃 hook 条目"
-  FAIL=$((FAIL + 1))
-else
-  echo "✓ settings.json 无 check_wo_intent/doc_guard"
+check accept '旧 ADR 工单可派' $'# 工单\n- **本单服务 → ADR-0007 的意图**: 校验响应格式\n'
+check accept '无 ADR 的用户目标可派' $'# 局部修复\n目标：修复空输入时的异常\n'
+check accept '英文冒号与 Markdown 目标可派' $'- **目标:** 调查实际请求的字段\r\n'
+check reject '缺目标不能派，且确实由目标检查拒绝' $'# 工单\n只列文件名\n'
+check reject '空目标不能派' $'目标：  \r\n依据：用户任务\n'
+check reject '仅 Markdown 标记的目标不能派' $'**目标:** **  **\n'
+check reject '空的旧 ADR 意图不能派' $'本单服务 → ADR-0007 的意图: \n'
+check reject '正文中提到目标不冒充目标行' $'请检查目标：是否合理\n'
+check reject '尖括号占位符目标不能派' $'目标：<要实现的行为或需要回答的问题>\n'
+check reject '未填 WO 模板不能派' "$(cat "$SCRIPT_DIR/../skills/planner/WO-TEMPLATE.md")"
+check accept '目标中含尖括号字段名仍可派' $'目标：修复 <input> 为空时的异常\n'
+
+if grep -E 'check_wo_intent|doc_guard' "$SCRIPT_DIR/../settings.json" >/dev/null 2>&1; then
+  echo '✗ settings.json 仍引用废弃 hook 条目'
+  exit 1
 fi
+echo '✓ settings.json 无 check_wo_intent/doc_guard'
 
-[ "$FAIL" -eq 0 ]
+[ ! -d scratchpad/runs ]
+echo '✓ 仅校验入口不产生 run 或外呼'

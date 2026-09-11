@@ -1,169 +1,90 @@
 # 工作流 + 文档系统设计蓝图
 
-> **这份文档是什么**:本工作流 + 文档系统的**设计权威 / rationale(为什么长这样)**,给人 / 维护者读。可运行的 SOT 是本仓 `kit/`(skills / scripts / `kit/git-hooks/`) + `README.md`;本文只讲**为什么**,不复述**怎么调**。**agent 不读它**(它们读 discipline + `AGENTS.md` + 后端 skills 入口)。
->
-> **地位**:系统已按本设计建成并跑过。投影布局见 `docs/dot-workflow-layout.md`;定稿与变更流程见 §4。
+> 本文是给人和维护者看的设计权威，说明当前取舍与边界。可运行的 SOT 是本仓 `kit/` 与 `README.md`；消费仓的物理路径位于 `.workflow/`，agent 通过 `AGENTS.md`、skills 和 `discipline.md` 工作。
 
----
+## 0. 核心取舍
 
-## 0. 为什么这么设计(一切从这几条推导)
+工作流让一个 planner 对结果负责：理解目标与现状，找出最关键的不确定性，选择能最快获得有效反馈的下一步，整合证据，并判断结果是否足以支持用户目标。planner 可以自己实现，也可以委派；任务成本包括外呼、交接、返工、用户负担和质量，不只包括 planner 的上下文。
 
-**两条经济学**
-- **分层套利**:Claude(贵)只做重规划与判断;干活 / 验收 / 文档维护外包给便宜 harness/model。省钱与提质一体。
-- **context 经济学**:planner **读验收单代替读 diff**,worker 的代码和 trace 永不灌进 Claude 上下文;文档用**指针**不复述。
+角色分工包括：bs 负责长期设计，planner 负责当前任务的编排和裁决，worker 执行，verifier 按需验收，finishing 交棒，cleaning 维护慢层文档。多 agent 是执行选项，是否委派由边界、反馈价值和交接成本决定。
 
-**三条结构律**(整个系统的地基)
-1. **著作,不追加**:长期知识由思考者(Claude / 人)**著作**成自足单元,绝不由 worker **追加**进中央池——单一池子被无限追加会退化成非人读的臃肿堆,所以每条知识都著作成自足单元、各归其家。
-2. **durable / ephemeral 分离**(= tracked / gitignored 分离):长存的知识(决策、证据、现状)进 git;施工副产物(工单、验收单、run 日志、trace、转写)进 `scratchpad/`(gitignored、消费完 GC)。两者**永不混放**:durable 文件夹只装 durable,混入 transient 泥沙就会天天 churn。
-3. **海拔分离(按是否长期)**:决策活在哪层由**是否长期(不可逆 / 会被反复引用)**决定——长期决策 → **ADR**;一次性执行步骤 → **WO**(ephemeral)。**ADR 记决策、不记实现**(可配伪代码,不搬真代码;写法 / 判据见 §1.3 与模板)。
+## 1. 文档系统：各类信息各有其家
 
-**脊椎:开发期少即是多**。默认不加;补丁层 / 兜底 / 抽象 / 边界 / 测试,加之前先证明非加不可(有真实触发路径)。
+消费仓物理路径在 `.workflow/` 下；本文表格使用短名，完整路径由消费仓 `AGENTS.md` 的文档地图定义。
 
----
-
-## 1. 文档系统:五个家 + 别名
-
-一类信息一个家,按**时态**切分。状态不单立仪表盘文件(见 §1.6)。
-**消费仓物理路径**:下表用短名;完整简写 ↔ 真路径见消费仓 **AGENTS 文档地图**。
-
-| 家 | 时态 | tracked? | 谁著作 | 谁维护 | 装什么 |
-|---|---|---|---|---|---|
-| **discipline.md** | 全固化(kit) | ❌(kit 投影) | kit | 一字不改随项目走 | 常驻六条纪律 + 脊椎 |
-| **AGENTS.md** (+CLAUDE.md=@AGENTS.md) | 半固化 | ✅ | 人 / 模板 | 少动 | 项目工具约定 + 文档地图 + 指向 discipline |
-| **architecture.md** | 活(慢层) | ✅ | bs/人 | cleaning 提 diff、人审 | 当前设计现状/地图 |
-| **decisions/** (ADR) | 冻结(只增) | ✅ | bs/planner(Claude) | 不可变,仅翻状态位 | 一决策一 ADR:why+可测契约+证据 |
-| **TODO.md** | 活(排空) | ✅ | planner/人 | cleaning 删已完成 | 扁平有序的"下一步" |
-| **scratchpad/** | ephemeral | ❌ | worker/planner | GC | WO、验收单、run 日志、transcript、临时脚本 |
-
-### 1.1 常驻纪律(discipline.md)+ 项目壳(AGENTS.md)
-**全固化核与半固化壳拆成两个物理文件**:
-- **discipline.md** = **全固化核**(六条纪律 + 脊椎),**kit 拥有、一字不改随项目走**。像 skills/scripts 一样随 `kit/` 整包 **copy** 进各项目 `.workflow/kit/`(本地忽略副本),版本管理只在 kit。这样(a)纪律单源、随 kit 更新;(b)装进**已有 AGENTS.md** 的项目时,不覆盖它的 AGENTS.md,只补文档地图指向 `.workflow/kit/discipline.md`。
-- **AGENTS.md** = **半固化壳**(项目工具约定 → 指向 `.workflow/workflow.env`;文档地图;顶部一行指向 discipline),项目自己拥有,留仓根(`CLAUDE.md` = 一行 `@AGENTS.md` import)。
-- **纪律怎么到 agent 手里**:交互 harness 读 AGENTS.md(指针)+ skills「开工先读」列 discipline;**worker/验收**由 `run_worker.sh` 把 discipline **注进 prompt 开头**(不靠各 harness 的 AGENTS 自动加载,保证送达)。
-- **入选核的三重判据**(三个都 yes 才留在 discipline):① 每 session 都要读?② 数周不变?③ 普适(非项目专属)。项目专属的挪去 AGENTS 壳 / skill / architecture。
-- **CLAUDE.md** = 一行 `@AGENTS.md`(CC 的 import 语法,展开得 AGENTS.md 全文);单源,不是第二份要维护的文档。**不用软链**(实测 cursor 会把软链的 CLAUDE.md 与 AGENTS.md 双读进上下文 = 冗余;import 行则只多读一行)。install 生成这一行。
-
-### 1.2 architecture.md(活地图,只装慢层)
-- 只装**慢层**:模块边界、数据模型、关键不变量、对外契约、全局地图、术语。几周才动一次 → 同步成本低。
-- **不装**:施工脚手架(路线图 / Epic→工单 / 待决问题 → TODO)、易变数据(服务清单 → 配置 `*.example`)、决策历史(→ ADR)。装多了就天天 churn。
-- **权威从属 ADR**:architecture 是各 ADR 决策的**当前状态合成视图** + 冷读地图;任何具体不变量 / 边界 / 契约的**单一事实源是对应 ADR**,architecture 只复述并指 `ADR-NNNN`,两者冲突时 **ADR 赢**——一处事实一个源,architecture 复述而不与 ADR 双认领。
-- **维护**:cleaning 从 transcript + 读仓提 diff,**人在 IDE 审**(判断型改动走候选清单)。
-
-### 1.3 decisions/ —— ADR(决策记录)
-- **定位**:一决策一 ADR,只装**决策内核**——HOW 卸给 WO、现状卸给 architecture、状态卸给 TODO。正因这些都不背,ADR 才瘦得下、停在人读高度。
-- **不可变**:改决策 = **开新 ADR**,旧 ADR 翻 `status: superseded` / `superseded_by`,**不改旧正文**——文件级 supersede,不在文件内打补丁。
-- **单文件 / 文件夹**:无附件 → `decisions/NNNN-slug.md`;有 durable 证据(实验数据 json/csv、notebook、一次性脚本)→ 文件夹 `decisions/NNNN-slug/`,**主 md 与文件夹同名**(不叫 README——多标签认得出),证据就近同放。**只有 durable 证据进这里;ephemeral 的 WO/run 产物进 scratchpad**。
-- **写法**(权威见 `decisions/0000-template.md`):
-  - **frontmatter**:`id/title/date/status(proposed|accepted|superseded|deprecated)/supersedes/superseded_by/tags`。验证脚本读结构化字段,不啃散文。
-  - **意图**:给人的散文 2–3 句(为什么/价值/边界),**禁 §引用、禁代码**。这是"生来可读"的车道。
-  - **决策**:拍板做什么——不变量 / 边界 / 硬上限 / **明确不做**。可配伪代码 / 算法;**不搬真代码**(file:line / 实现照抄归代码,会漂)。
-  - **备选与失效模式**:被否的路 + 各自"若选它会怎么错"(最防重踩的一节)。
-  - **后果**。
-  - **引用**:代码 / 文档写 `ADR-NNNN`;断链检查 = 查 `decisions/NNNN-*` 在不在(存在性检查,不解析子章节)。
-- **记决策、不记实现**:ADR 写意图 + 有把握的长期决定;能用代码 + 测试表达的形状放代码、ADR 只引不誊写;拿不准的先别冻。
-- **何时才写**:决策**稳定、会长期生效**(不可逆 / 会被反复引用)才写 ADR;早期高频探索留在 scratchpad / architecture 草稿。只在决定真稳时冻,不是每次结晶。
-- **证据谁搬**:实验支撑某决策时,**由 ADR 起草人在著作时顺手把 scratchpad 的 json/csv/notebook 提升进 `decisions/NNNN-slug/`**——是著作动作的一部分,不是 worker/GC 的活(否则 ADR 文件夹永远空)。
-- **可发现性(ADR 多了再加)**:早期靠 frontmatter tags + `git grep` 足够。**decisions/ 攒到找不动时**,再让 `check_docs.py` 从 frontmatter 自动生成 `decisions/index.md`(零维护);不提前建、不搞 taxonomy(纪律③)。
-
-### 1.4 TODO.md(扁平清单,做完即删)
-- 只放**下一步真要做的事**,完成即删行(天然排空)。
-- **设计债不进这里**:坏 WO / 发现的坏设计 → **开新 / 改 ADR**(显性化走设计审),不倒进 TODO 暗堆——设计债显性化为决策才不会在清单里越堆越沉、无人认领。
-- **无仪表盘头**:HEAD 归 git、测试基线归"跑一次得真数"、"现在在做"就是清单顶部——都别手抄进来(双写必漂)。
-- **TODO 默认、可长期用**:solo / 开发期自己发现问题自己改,近水楼台。只有当**项目进入成熟期 + 开源 + 真有他人提 issue**时,才迁移到 GitHub issues(取决于有没有多方 issue 流量;与「工作流本身开源」无关)。
-
-### 1.5 scratchpad/(ephemeral,gitignored)
-- session 分目录:`PL-<uuid>` / `BS-<uuid>`(完整 session UUID);派单产物 `runs/<run-id>`(时间戳+PID,并发唯一)。
-- 装:WO、worker report、验收单、run.log、transcript、临时脚本。
-- **GC**:cleaning 例程留最近 N 个(默认 10)有 `.done` 的 run、其余删(几行 find,不单独成脚本),随后清 session 目录。
-
-### 1.6 没有 STATE 仪表盘文档
-状态不单立一个仪表盘文件:冷启动读 AGENTS(地图)+ architecture(现状)+ TODO(下一步)+ 相关 ADR 就够。各类状态各归其家——已冻契约 → ADR + architecture;候选 / 当前活跃 → TODO;悬而未决 → TODO 或 proposed 的 ADR;已知地雷 → **代码本地注释** + AGENTS 项目铁律。手抄进单一仪表盘只会与这些真源双写漂移。
-
-### 1.7 知识去哪(各类知识的家)
-| 知识类型 | 新家 | 为什么 |
+| 家 | 内容 | 维护方式 |
 |---|---|---|
-| 领域坑 / gotcha | **代码注释 / docstring**(触发点本地) | 碰到那行才读,不是中央文件读太晚 |
-| 成规则的教训 | **ADR** | 教训=一个"以后要/不要 X"的决策 |
-| 项目级铁律(跨切面) | **AGENTS.md 一小节** | 人策展、封顶,非追加 |
-| 设计债 / 坏 WO 欠账 | **新 / 改 ADR** | 显性化为决策修正,不暗堆 |
-| 实验数据 / A/B | **ADR 的证据**(文件夹内) | 实验终结于它支撑的决策 |
-| "干了啥"叙事 | **ADR 本身**(生来可读) | 免二次蒸馏;按时间读 decisions/ = 设计故事 |
-| 跨切面总览 | **architecture.md** | 活地图 |
+| `discipline.md` | 六条常驻纪律与脊椎 | kit 单源，随安装投影 |
+| `AGENTS.md` | 项目工具约定和文档地图 | 项目维护，人策展 |
+| `architecture.md` | 当前设计现状、模块边界、关键调用链 | cleaning 提交候选，人审判断型改动 |
+| `decisions/` | 稳定、长期、会反复引用的 ADR | 一决策一文件；改变决策开新 ADR |
+| `TODO.md` | 下一步真实工作 | 做完即删，保持扁平 |
+| `scratchpad/` | WO、brief 快照、报告、验收单、run 日志和 transcript | ephemeral，按龄 GC |
 
----
+ADR 记录意图、长期约束、边界和后果，不记录易变实现。用户目标、已接受契约和授权边界是硬约束；实现建议与尚未验证的假设要明确标出。没有稳定决策时，不为获得派单资格制造 ADR。
 
-## 2. 工作流:四角色,分层
+`architecture.md` 是 ADR 当前状态的地图和合成视图，具体契约仍以对应 ADR 为准。设计资产与 run 产物分离：长期证据随 ADR 进入 git，单轮材料留在 scratchpad；不另建裁决或交棒台账。
 
-**Claude(贵,出思考)**:`bs` 著作 ADR · `planner` 切 WO / 拍板 · `finishing` 收尾。
-**便宜 harness**:`worker` 执行 · `verifier` 异构验收 · `cleaning`(Cursor)维护文档。
-决策**只 Claude 层著作**,worker/cleaning 永不著作决策。
+## 2. 当前工作闭环
 
-### 2.1 一轮完整闭环
-```
-bs        发散(≥3 真不同方案,各 steelman+失效模式) → 异构红队选项册
-          → 收敛、著作 ADR(意图 + 有把握的长期决定,记决策不记实现)→ 冻结前红队 + 人审意图层 → accepted
-   ↓ 交棒
-planner   读 ADR → 读实况(grep/read 核实 file:line)
-          → 设计 HOW(实现中长出的长期决定 → 就地单轮红队 + 冻结)
-          → 切 WO-<ADR>-<序号>(顶部意图行「本单服务 → ADR-NNNN」)
-          → WO 审(WO_REVIEW=1,派 worker 前审工单质量)→ 裁决 blocking → 用户放行
-          → 派便宜 worker + 异构施工审(run_worker.sh)→ 读 STATUS 四态 + findings 拍板 + 按需看高危 diff
-          → 对每条 blocking 出裁决(修/驳回+理由/转 ADR),驳回/跳过亲验的理由随 commit 落库
-          → 都裁决且机器事实干净 → 放行 commit;要修 → 收窄复审 WO-…b;坏 WO/坏设计 → 报告用户 → 开新/改 ADR
-finishing 出总结/交棒(列未冻决定候选;只进会话、随转写落 transcript,不另立文件)+ 转写 session(决定在成熟当下就地冻,不在这儿)
-cleaning  (Cursor)维护 architecture.md(提 diff 人审)+ 排空 TODO + 清理 scratch + 死链核查
+```text
+bs         发散真实方案、红队比较，冻结成熟的长期决策
+planner    读目标和实况 → 三轴分诊 → 自做或短 brief 委派
+           → 取得真实反馈 → 看整体与关键调用链 → 裁决并按需审查
+worker     在目标和硬边界内实现，回报结果、偏离和矛盾
+verifier   按风险或明确要求审查实际行为与证据
+finishing  总结并把交棒内容写入 session transcript
+cleaning   维护 architecture、排空 TODO、清理 scratchpad、查死链
 ```
 
-### 2.2 三档分诊(每个活先判,别高射炮打蚊子)
-| 档 | 什么活 | 怎么走 |
+### 2.1 三轴分诊
+
+每项工作分别判断：
+
+| 轴 | 要回答的问题 | 影响 |
 |---|---|---|
-| 琐碎 | 单文件/<~20行/无设计 | 自己改 或 `SKIP_REVIEW=1`,抽验 |
-| 小 | 边界清/判据一两条/不碰热路径 | 3–5 行 inline 派单,走两阶段 |
-| 复杂/高危 | 碰契约/热路径/多文件/有陷阱/含实验 | 全模板 WO,异构双验收,亲验需亲验点 |
+| 不确定性 | 哪个假设尚未验证？什么反馈能推翻或确认它？ | 优先读实况、看样本或跑最小完整路径 |
+| 风险 | 错误影响什么，能否发现和恢复？ | 决定验证强度、独立审查和用户放行 |
+| 委派收益 | 交接是否清楚，委派是否比直接完成更有价值？ | 决定自做、委派或并行 |
 
-### 2.3 闸门(异构 + 人审,堵同源盲区)
-- **人审意图层**(闸门1):bs 把各 ADR 意图行聚一屏给用户,他有产品意图,一屏否掉不合理设计。
-- **红队 ADR**(闸门2):**任何 ADR 冻结前**,交异构只读模型审一遍(单轮)——契约自洽、判据能证伪、没搬真代码、没为不存在的边缘写东西。bs 冻在纸面、动工前;planner 冻在实现里决定成熟的当下。
-- **WO 意图行**(闸门3):每张 WO 顶部 `本单服务 → ADR-NNNN`;缺 / 指向不可核实的锚(如 slug-ADR)则 `run_worker.sh` 入口拒派。只收 `ADR-NNNN`(check_docs 能验断链),用户扫这行拦跑偏。
-- **异构验收**(闸门4):worker 与 verifier 跨厂异构;**拆两专项**——WO 审(派 worker 前审 WO-vs-ADR)+ 施工审(派 worker 后审 diff-vs-WO,经 diff 暴露的 WO 缺陷仍可报)。verifier 只提交结构化 findings,放行状态由脚本纯派生(§2.5)。
+工作量和行数只作参考。探索可以委派，机械改动也可能高风险；不因“含实验”自动套完整模板或双审。
 
-### 2.4 每个组件的设计规范(HOW 的 SOT = `.workflow/kit/skills/*`,这里只记 why 层取舍)
-四角色 bs/planner/finishing/cleaning 的操作细节权威在各自 skill;本节只留不落在 skill 里的**设计取舍**:
-- **bs vs planner 分脑**:bs 发散(≥3 真不同 + 红队),planner 冻结脑 + 切 WO;同一强模型「出设计又派单」共同盲区不互查,故设两道异构红队 + 两道人审(§2.3)。
-- **验收员 ≠ worker 模型家族**:异构才是真独立第二双眼;高危双验收第二审尤其不能同家族。
-- **闸门在动作处,单实现、可移植**:意图行校验在 `run_worker.sh` 派单入口、著作类文件越界校验在 worker 执行之后(跳过验收也跑)、文档结构校验在 git `pre-commit`(校验 index 待提交内容)。**同一逻辑单实现**(一处触发,不在多处重复),移植到 Cursor/Codex 等 harness 时闸门照在。
-- **scripts 3+1 + 1 git hook**:`run_worker.sh`(四模式派单:施工+施工审 / SKIP_REVIEW / REVIEW_ONLY / WO_REVIEW;内化意图/越界闸门;把放行状态**对不可变输入纯派生**成一个 `STATUS:` 四态,退出码只有 `infra_failed` 非零;把 discipline 注进 worker/验收 prompt 开头;外呼流式只落 run.log)、`check_docs.py`(ADR 结构/断链 canonical,`--changed` 看工作树 / `--staged` 看 index blob;仓根按 **git toplevel**、设计资产按 **`.workflow/decisions` 约定**定位)、`transcribe_session.py`(session JSONL→markdown transcript);`call_agent.sh` 是外呼公共入口(CLI 原生流式 + 分角色超时杀整树)。git `pre-commit` 跑 `check_docs --staged`。scratch GC 折进 cleaning,不单独成脚本。
+### 2.2 brief、反馈和实现判断
 
-### 2.5 强制机制(不靠纪律;背书三条结构律)
-- **著作不追加(律1)**:著作类文件(`decisions/`、`architecture.md`、`AGENTS.md`)**只 Claude 层动**,worker 授权写面只限代码 + scratchpad。越界校验**由 `run_worker.sh` 在 worker 执行后亲跑**(跳过验收也跑),产出机器事实喂进放行派生。
-- **验收可信 = 判定不由模型持有(闸门4)**:验收模型**只写它有权威的东西**(结构化 findings:发现了什么);身份 / 机器事实(pytest·越界·check_docs)/ 最终放行状态一律由 `run_worker.sh` 按一条可计算式**从不可变输入纯派生**成四态(`review_complete|blocked|skipped|infra_failed`)。**一个判定源**——机器事实脚本亲产、放行状态脚本派生、退出码只 `infra_failed` 非零,planner 直读验收报告不再转述。**验收员跨厂 ≠ worker**;**revision = worker 改完后对验收对象树取 hash**(含 untracked);WO 审 hash 工单内容。
-  - **finding 结构 = sentinel 块**(每条 `<<<FINDING…FINDING>>>`,字段各占一行、值可含冒号引号、无嵌套转义):E5 实测 sentinel/jsonl 干净率 100%、yaml-fence 50%(整块 ScannerError),sentinel 再以「无转义负担 + 人读性」破 jsonl 的平局。冻语义(severity/where/claim/failure_scenario;blocking 须指名具体错误结果,否则为 nit)+ 这个语法;坏一块只跳一块。**nit 不进派生式,但 derive 必列 nit 自曝清单**(where+claim 逐条),供 planner 可选采纳、让「被降级为 nit 的东西」可见。
-  - **双验收弹性**:两员并行、blocking 取并集。任一验收员无有效产出(缺失/空/不可解析)→ 该轮无验收结论,整轮 infra_failed + 自曝;回显仍展示存活验收员的单子,planner 用 `REVIEW_ONLY=1` 重派验收(工作树冻结,不重跑 worker)。重派 = 只重跑验收:`REVIEW_ONLY=1 .workflow/kit/scripts/run_worker.sh <WO> <验收模型…>`;重派单员把第 3 参设为该员模型、省略第 4 参,重跑整组就带原两模型。
-- **planner 只裁决不转述(D3)**:放行状态是**信息态,不硬闸 commit**(solo commit 可逆,裁量权归 planner)。**裁决不进派生式**——派生只看 findings + 机器事实,故 `review_blocked` **不随裁决翻转**;planner 对每条 blocking 出 修/驳回+理由/转 ADR,驳回与跳过亲验的理由随 commit 落库(可复核),判所有 blocking 已裁决即放行,STATUS 保持 blocked 无妨。
-- **验收拆两专项(D5)**:WO 审(派 worker 前,只读 WO+ADR)+ 施工审(派 worker 后,diff-vs-WO);坏 WO 在派 worker 前拦下。复审 = 收窄的新派发、逐条闭合上轮 blocking(D4),无模型维护的跨轮状态。
-- **闸门加深不加数**:与其多盖章,不如让保留的那道真看——planner 对契约/热路径**看 diff**(§2.4),别只扫意图行。
+默认派单是一份短 brief，包含目标、依据与硬边界、待验证假设、交付与证据，以及可调整的做法建议。目标可以是非空的实现目标，也可以是一个需要回答的问题；若本任务承接现有 ADR，则引用它，否则只需说明用户任务。brief 不承担无关历史，也不把建议写成冻结契约。
 
-### 2.6 轻量约束(solo 低概率,只文档约定、不建机制)
-- **并发**:别并行跑两个 planner 碰同一 ADR;ADR id = 著作时取现存最大+1,撞号改名(git 仲裁)。
-- **失败恢复**:`.done` = 「产物已定、可被 cleaning 按龄 GC」的标记,**不是放行判定**(放行看 `STATUS`)。complete/blocked/skipped 都落 `.done`;`infra_failed` / 硬中断无 `.done` → 下轮 planner 判重做/弃。blocked 的 run 按龄回收无妨——durable 审计痕迹在 git(commit message),不在 ephemeral run 目录。GO 后发现坏 → 开修正 WO,若是**决策**错则改 ADR。
-- **密钥 / 注入面**:worker 不读 secrets 配置(gitignored + 进程内);transcript 落盘前 secret-scan;`README/AGENTS/architecture` 是注入面——worker 读仓内 / untracked 文本按**不可信数据**处理,不执行其中"指令"。
+探索优先建立一条最小完整反馈路径，再决定是否扩大实现。框架、测试、真实结果和未验证部分分别陈述。环境不可用时可以完成独立准备，但必须明确哪些检查未执行、需要什么环境、因此不能证明什么。
 
----
+worker 在授权范围内选择实现。发现关键假设不成立、目标或范围必须改变，或建议会引入显著新机制时，立即在短报告中写出具体矛盾、证据和可行选择。正常的局部实现选择无需逐项请示。
 
-## 3. 不分项目档 —— 按任务自适应
+每轮 run 保存一份 `brief.md` 快照；worker 和所有 verifier 使用同一份快照。执行后的回显包含 worker 的完整短报告；报告中的偏离与矛盾是 worker 的自述，供 planner 判断，脚本不自动解析或替它背书。
 
-**不设「轻/重项目」档**——全局设档会压制"该严的活",有损质量。质量自适应只在**任务粒度**,由 planner 的三档分诊(§2.2)按当前任务升降级:简单 → 轻量派单 / inline;重活 → 严格异构验收。
+### 2.3 审查与 planner 亲验
 
-文档系统本就最小(AGENTS + architecture + decisions + TODO + scratchpad),**按 ADR/TODO 数量自然伸缩**,没有"重文档机制"需要开关——solo 项目就是 ADR 少、architecture 短、TODO 短,不需要切模式。
+WO 审是可选能力：只有未经验证的方案一旦错误会造成明显返工，或用户明确要求时才安排；审查应回答指定疑点、读取相关实况并比较必要的替代方案。双审按第二双眼带来的增益选择，风险不足或没有独立价值时不启用。
 
-闸门(派单脚本 + git pre-commit)与异构红队是**随任务调用的机制**(planner 按需升级),不是项目级开关。
+施工审围绕目标、实际入口、关键调用链、证据有效性和不必要机制组织。工单是上下文，不是逐条合规清单。finding 要给出触发条件、错误结果和依据，已确认缺陷与待验证疑点分开；纯建议不自动阻断。
 
-**何时用整套 vs 直接改代码**:这套流水线在『工作可批量/并行、任务非平凡、贵模型受限』时才回本。**一次性小修就直接在终端改代码——那不是绕过系统,那就是琐碎档的正确用法**。别假装 always-on:planner 在每张单的关键路径上,给 5 分钟的活套完整仪式是负 ROI。
+`SKIP_REVIEW=1` 复用探索执行后返回负责人的路径：脚本仍做越界等边界检查，但不运行 pytest 和 `check_docs`，回显明确列出未执行项；这不等于验收通过。需要独立审查时再用 `REVIEW_ONLY=1`。`review_complete` 只表示本轮审查状态，不表示业务目标已完成。
 
----
+planner 对整体和关键调用链自主核实，不能只转述报告。测试全绿只证明执行过的断言成立；无 blocking 只证明本轮没有报告阻断问题。放行判断还要结合目标、设计取舍、真实结果和证据限度。
 
-## 4. 变更流程
+### 2.4 复审和状态
 
-低概率项只作文档约束(§2.6),不建机制——工作流遵守「少即是多」脊椎。
+发现问题后，planner 可以修实现、调整或撤回本轮方案、给出理由不采纳，或在确实改变长期契约时转 ADR。若矛盾反复出现、修补不断增加平行机制，或关键假设已被推翻，应先重新判断方案。
 
-**此后对工作流本身的改动**:改本仓 `kit/` 的 skills/scripts/discipline → `install.sh` 推消费项目;可运行 SOT = kit 文件,changelog = git 历史。本文只保留「现在为什么这么设计」,改完同步到最新结论即可,不留改动流水账。**本仓改机制不走消费仓 WO 意图闸门**——维护者直接改 `kit/` + 跑 `kit/scripts/tests/run-all.sh`(见 `docs/MAINTAINERS.md`);消费仓 WO 意图行只认 `ADR-NNNN`。
+复审重写当前有效的 brief，撤回过时要求；旧 brief 和审查原文仍在 run 记录中，但不要求执行者同时满足多代判据。轮数只作提醒，不能机械决定停工或继续。长期 ADR 纪律保持不变，具体实现做法可以随着证据改变。
+
+脚本将机器事实和结构化 findings 纯派生为 `review_complete`、`review_blocked`、`review_skipped` 或 `infra_failed`。finding 使用结构化字段 `severity`、`where`、`claim`、`failure_scenario`，无 finding 用明确的 `<<<FINDINGS-NONE>>>` 标记；坏报告不能替代机器事实。脚本亲产 pytest、文档和越界等检查，并保留跳过项解释；入口参数或目标错误直接以非零退出，`infra_failed` 表示执行或验收基础设施失败。状态是信息态，最终裁决仍由 planner 负责；双审只有在明确需要时启用，启用后 blocking 取并集；任一审查员没有有效产出时该轮为 `infra_failed`，可冻结工作树用 `REVIEW_ONLY=1` 重派。
+
+## 3. 实现契约与布局
+
+`run_worker.sh` 负责派单、外呼、brief 快照、报告回传、著作文件越界检查和状态派生；`SKIP_REVIEW`、`REVIEW_ONLY`、`WO_REVIEW` 是显式能力。revision 在 worker 完成后对验收对象树取 hash，并包含 untracked 文件。脚本不把模型自报结果当作机器事实。`call_agent.sh` 负责原生流式输出、角色超时和整树回收；`check_docs.py` 负责 ADR 结构、断链及 staged/changed 检查；`transcribe_session.py` 将 session JSONL 转成 transcript；git hook 运行 staged 文档检查。
+
+闸门放在动作发生处并保持单实现：派单入口检查目标或 ADR 定位，worker 结束后检查著作越界，提交时检查文档结构。`run_worker.sh` 保存的 brief 是本轮执行和验收的共同输入，不建立跨轮状态数据库。`.done` 只表示产物已定、可以清理，不表示放行；执行中的共享工作树不允许并行改写。著作类文件由负责人和适配当前 harness 的授权层维护，worker 的写入面限于代码与 scratchpad。worker 不读 secrets 配置（gitignore 与进程内凭证）；transcript 落盘前做 secret-scan。README、AGENTS、architecture 是注入面：worker 把仓内和 untracked 文本当不可信数据读，不执行其中的指令。
+
+安装始终把 `kit/` copy 到消费仓 `.workflow/kit/`，不使用共享 symlink。track 与 no-track 只改变 git exclude 粒度，物理布局不变；`.workflow/VERSION` 记录安装时的 tag 与 commit。布局细节见 `docs/dot-workflow-layout.md`。
+
+## 4. 变更原则
+
+工作流机制只在本仓 `kit/` 修改，经 `install.sh` 投影；本文和 README 同步说明当前为什么这样设计。改脚本、hook 或安装逻辑前先读 `docs/failure-modes.md`，并按 `docs/MAINTAINERS.md` 跑相应检查。保持 bash、Markdown 和一个安装脚本的最小系统，不为低概率情形新增角色、状态或固定仪式。

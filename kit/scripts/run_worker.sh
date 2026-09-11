@@ -6,15 +6,15 @@
 #                任一验收员无有效产出 → 该轮无验收结论,整轮 infra_failed(自曝);回显仍展示存活
 #                验收员的单子,planner 见 infra_failed 后 REVIEW_ONLY 重派失败的那员(第 3 参=该员
 #                模型、省略第 4 参;工作树冻结,不重跑 worker)。
-#   回到 planner 的**只有**:STATUS + findings 摘要(含 nit 自曝清单)+ 机器事实 + 验收单 + git stat + token 用量。
+#   回给 planner:输入快照路径、worker 报告、STATUS、检查执行范围、验收单、git stat 与用量。
 #   派发统一走 call_agent.sh(worker=write、验收=read-only);本脚本只做编排。
 #   worker/验收 prompt 开头都会附上 discipline.md(常驻六条纪律),不靠各 harness 的 AGENTS 自动加载。
 #
 # 用法:  .workflow/kit/scripts/run_worker.sh <工单文件> [执行模型] [审查模型] [审查模型2]
 #   默认(无 env flag): ①执行 + ②施工审(第4参给第二审 = 双验收并行)。
-#   环境变量 SKIP_REVIEW=1   : 跳过②(琐碎/小改分档用);越界校验仍跑。
+#   环境变量 SKIP_REVIEW=1   : 执行后返回负责人;跳过测试/文档检查和②,越界校验仍跑。
 #   环境变量 REVIEW_ONLY=1   : 跳过①,只对当前工作树跑②。与 SKIP_REVIEW 互斥。
-#   环境变量 WO_REVIEW=1     : 跳过①,只跑 WO 审(wo-review-preamble),无 pytest/越界/check_docs 机器事实。
+#   环境变量 WO_REVIEW=1     : 显式定向方案审(wo-review-preamble),无执行或机器检查。
 #   环境变量 RUN_WORKER_INTENT_CHECK_ONLY=1 : 仅校验工单意图行后退出(测试桩)。
 set -euo pipefail
 
@@ -55,15 +55,27 @@ command -v jq >/dev/null || { echo "✗ 找不到 jq(解析 token 用量需要)"
 
 _check_wo_intent () {
   local wo_file="$1"
-  local intent
-  intent="$(grep -m1 '本单服务' "$wo_file" || true)"
-  if [ -z "$intent" ]; then
-    echo "✗ 闸门:工单 $wo_file 缺「本单服务 → ADR-…」意图对齐行" >&2
-    return 1
-  fi
-  # 只接受可核对存在性的 durable 决策锚:ADR-NNNN(check_docs 能验断链)。
-  if ! printf '%s' "$intent" | grep -qE 'ADR-[0-9]{4}'; then
-    echo "✗ 闸门:工单 $wo_file 的「本单服务」意图行未指向 ADR-NNNN" >&2
+  # 接受目标行与既有 ADR 意图行;只校验文本非空且非整段 <占位符>,语义及授权由负责人判断。
+  if ! awk '
+    {
+      line = $0
+      gsub(/\r/, "", line)
+      sub(/^[[:space:]]*[-*][[:space:]]+/, "", line)
+      gsub(/[*`]/, "", line)
+      if (line ~ /^[[:space:]]*目标[[:space:]]*[:：]/) {
+        sub(/^[[:space:]]*目标[[:space:]]*[:：][[:space:]]*/, "", line)
+      } else if (line ~ /^[[:space:]]*本单服务[[:space:]]*→.*ADR-[0-9][0-9][0-9][0-9].*意图[[:space:]]*[:：]/) {
+        sub(/^.*意图[[:space:]]*[:：][[:space:]]*/, "", line)
+      } else {
+        next
+      }
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line == "" || line ~ /^<[^>]*>$/) next
+      found = 1
+    }
+    END { exit !found }
+  ' "$wo_file"; then
+    echo "✗ 闸门:工单 $wo_file 需要非空且非模板占位符的「目标：…」或 ADR 意图行" >&2
     return 1
   fi
   return 0
@@ -91,6 +103,9 @@ RUN_DIR="$WF/scratchpad/runs/${RUN_ID}"
 mkdir -p "$RUN_DIR"
 LOG="${RUN_DIR}/run.log"
 REPORT_FILE="${RUN_DIR}/report.md"
+WO_SOURCE="$WO"
+cp -- "$WO_SOURCE" "$RUN_DIR/brief.md"
+WO="$RUN_DIR/brief.md"
 
 TIMEOUT_WORKER="${WF_TIMEOUT_WORKER:-1800}"
 TIMEOUT_REVIEW="${WF_TIMEOUT_REVIEW:-1200}"
@@ -135,9 +150,10 @@ RO_LABEL=""
 [ "${REVIEW_ONLY:-0}" = "1" ] && RO_LABEL="  (REVIEW_ONLY=1,跳过执行)"
 [ "${WO_REVIEW:-0}" = "1" ] && RO_LABEL="  (WO_REVIEW=1,工单审)"
 {
-  echo "▶ 派单     : $WO"
+  echo "▶ 派单来源 : $WO_SOURCE"
+  echo "▶ 本轮输入 : $WO"
   if [ "${WO_REVIEW:-0}" = "1" ]; then
-    echo "▶ 模式     : WO 审(只读)"
+    echo "▶ 模式     : 定向方案审(只读)"
   else
     echo "▶ 执行模型 : $MODEL${RO_LABEL}"
   fi
@@ -240,11 +256,25 @@ set -e
 
 {
   echo ""
-  echo "═══════ 回给 planner(只看这段;不回 diff/trace) ═══════"
+  echo "═══════ 回给 planner：结果、证据与审查状态 ═══════"
+  echo "本轮输入: $WO"
   echo "revision: $REVISION"
+  if [ "${WO_REVIEW:-0}" = "1" ]; then
+    echo "检查执行范围: 仅方案审；pytest/check_docs/越界检查均未执行。"
+  elif [ "${SKIP_REVIEW:-0}" = "1" ]; then
+    echo "检查执行范围: 仅越界检查；pytest/check_docs/独立审查均未执行。"
+  else
+    echo "检查执行范围: pytest/check_docs/越界检查与独立施工审。"
+  fi
+  echo "未执行的检查以本范围说明为准，派生参数中的默认 rc=0 不代表通过。"
   printf '%s\n' "$DERIVE_OUT"
   echo "执行退出码: $RC"
   printf '%s' "$REVIEW_RC_ECHO"
+  if [ -f "$REPORT_FILE" ]; then
+    echo "──── worker 报告(自述证据，由 planner 核实)────"
+    cat "$REPORT_FILE"
+    echo ""
+  fi
   echo "──── git status --porcelain(含 untracked) ────"
   git status --porcelain
   echo "──── git diff --stat ────"
@@ -262,7 +292,7 @@ set -e
     if [ "$PYTEST_RC" -eq 0 ]; then
       echo "pytest: 全绿"
     else
-      fail_lines="$(printf '%s\n' "${PYTEST_OUT:-}" | grep -E '^FAILED' | head -20)"
+      fail_lines="$(printf '%s\n' "${PYTEST_OUT:-}" | awk '/^FAILED/ { if (++n <= 20) print }')"
       if [ -n "$fail_lines" ]; then
         echo "pytest: 红(失败列表如下,全文见 run.log)"
         printf '%s\n' "$fail_lines"
@@ -275,7 +305,11 @@ set -e
   fi
   echo ""
   echo "✔ trace/token 全量日志: $LOG"
-} | tee -a "$LOG"
+} | sed -u \
+  -e 's/sk-[a-zA-Z0-9_-]\{20,\}/[REDACTED]/g' \
+  -e 's/ghp_[a-zA-Z0-9]\{20,\}/[REDACTED]/g' \
+  -e 's/gho_[a-zA-Z0-9]\{20,\}/[REDACTED]/g' \
+  | tee -a "$LOG"
 
 # best-effort 敏感串打码(与 call_agent 的流式打码同一套 pattern,各盖不同内容:本处覆盖
 # 回显段里的验收单/机器输出全文,两者幂等不冲突)。
@@ -287,7 +321,7 @@ sed -i \
 
 if printf '%s' "$STATUS_LINE" | grep -q 'infra_failed'; then
   if [ "$CLI_FAILED" = "1" ]; then
-    echo "重派提示: worker/CLI 失败 → 整单重派" | tee -a "$LOG"
+    echo "处理提示: worker/CLI 失败 → 先读报告、日志与工作树，确认已有进展后决定恢复方式" | tee -a "$LOG"
   elif [ "${WO_REVIEW:-0}" = "1" ]; then
     echo "重派提示: WO 审失败 → WO_REVIEW=1 重审工单" | tee -a "$LOG"
   else

@@ -10,6 +10,7 @@ run () { echo "── $1 ──"; bash "$HERE/$1"; local rc=$?; [ $rc -eq 0 ] &&
 run test_derive.sh
 run test_call_agent_stream.sh
 run test_intent_gate.sh
+run test_run_worker.sh
 run test_staged.sh
 run test_install_smoke.sh
 

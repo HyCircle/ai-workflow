@@ -12,7 +12,7 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 2. **Read AGENTS**——工具约定 + 文档地图。
 3. 你的 memory、问题相关的 **ADR**(`decisions/NNNN-*.md`)与 architecture 现状。**只读相关那几个 ADR**,别通读所有决策(省 context)。
 
-## 发散纪律(和 planner 的冻结脑相反)
+## 发散纪律
 - 至少 **3 个真正不同**的方案(不是一个方案的三个参数),每个都 steelman(用最强论证挺它)。
 - 显式列假设与未知;不确定的标出来,别偷偷替读者决定。
 - 每个方案配失效模式(「如果这错了,错在哪」)。有更简单的路子必须说。
@@ -44,7 +44,7 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 - **写法**权威见 `.workflow/decisions/0000-template.md`:frontmatter(id/title/date/status/supersedes/superseded_by/tags)、**意图**(给人的散文 2–3 句)、**决策**(拍板做什么:不变量 / 边界 / 硬上限 / 明确不做,可配伪代码 / 算法;不搬真代码)、**备选与失效模式**、**后果**。
 - **ADR 号** = 现存最大 + 1(`ls .workflow/decisions/`),四位零填充;有 durable 证据(实验 json/csv、notebook)→ 建文件夹 `.workflow/decisions/NNNN-slug/`,主 md 与文件夹同名,证据就近同放(你著作时顺手把 scratchpad 的数据提升进去)。
 
-**③ 人审意图层(闸门1)**:把各新 ADR 的**意图行聚成一屏**给用户——他有产品意图,是最强的设计红队,读一屏就能否掉不合理设计,把发现点提前到施工前。
+**③ 人审设计选择**:把各新 ADR 的目标、具体决定、关键依据、主要取舍和未验证部分简短呈现给用户,说明需要决定什么。已有授权覆盖的部分继续推进。
 
 **④ 冻结前过 ADR 红队(闸门2)**——动工前、纸面上,交异构只读模型审一遍收敛后的 ADR(批评固定落盘 redteam-adr-NNNN.md):
 ```bash
@@ -54,9 +54,9 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
   "$WF_REVIEW_MODEL" \
   .workflow/kit/skills/bs/redteam-adr.md .workflow/decisions/NNNN-<slug>.md
 ```
-吸收红队 + 用户闸门1 的意见,改定后翻 `status: accepted` 冻结。**吸收 = 正面折入契约**:红队每条改写对应契约或砍冗余,正文只留收敛后的结论。红队原文落 redteam-adr-NNNN.md 仅供本 session 审阅;**ADR 正文与引用一律不指向 `.workflow/scratchpad/`**,吸收后原文随 session GC、不升 durable。
+裁决红队与用户意见,把采纳的结论正面写入对应契约,按用户授权翻 `status: accepted`。发现影响选择的新信息时先展示修订后的具体方案。红队原文落 redteam-adr-NNNN.md 仅供本 session 审阅;**ADR 正文与引用一律不指向 `.workflow/scratchpad/`**,吸收后原文随 session GC、不升 durable。
 
-**⑤ 交棒**:planner(`/planner`)读冻结的 ADR 切工单。
+**⑤ 交棒**:planner(`/planner`)结合 ADR、待验证问题与代码实况安排实现或实验。
 
 ## 心法
-BS 是一顶帽子(用完摘),不是常驻 agent——发散烧 token,一个设计只烧一次,挡的是下游返工。**同一个强模型出设计、又派工单,共同盲区不互查**;两道红队(异构)+ 两道人审(意图层 / 工单意图行)就是为堵这个。**严禁写实施细节**(那是 WO 的 HOW)。不写代码、不出工单。
+BS 负责比较设计选择与记录有依据的长期决定。独立模型的意见提供另一种视角,负责人仍需判断证据和取舍。实现建议与待验证假设保持可调整;planner 在实际实现和实验中继续验证它们。

@@ -9,8 +9,8 @@
 
 **派单模型分档**(便宜劳力,写法「后端/模型」,后端 `cursor|codex`,省前缀=cursor):
 - `WF_WORKER_MODEL` — 默认执行(量大最省)。
-- `WF_REVIEW_MODEL` — 默认验收(**跨厂异构** worker,真独立第二双眼)。
-- `WF_REVIEW_MODEL_STRONG` — 高危双验收的第二审 / 硬骨头。
+- `WF_REVIEW_MODEL` — 独立审查默认档，选择与 worker 不同的模型家族。
+- `WF_REVIEW_MODEL_STRONG` — 需要更强判断或第二审有明确收益时使用。
 
 换型号 / 换厂就改这三个别名的值,不要在脚本或 skill 里写死具体型号。
 

@@ -20,7 +20,7 @@
   findings 块漏解析,四态派生出错。
 - **根因**:逐行**精确相等**匹配 marker + marker 判定顺序错(先判 opener,NONE 被当 opener 前缀)。
 - **规则**:读行**先 strip CR + 行尾空白**;marker 用 **contains** 匹配;**NONE 先判**再判 opener。
-- **在哪强制**:`kit/scripts/tests/test_derive.sh` 补 4 例回归(glued opener / glued NONE / CRLF / 行尾空白);全套 18 例须绿。
+- **在哪强制**:`kit/scripts/tests/test_derive.sh` 覆盖 glued opener、glued NONE、CRLF 和行尾空白回归；测试集合保持与 derive 契约同步。
 
 ## FM-2 · 双验收「容忍层」掩盖 infra 失败
 
@@ -42,20 +42,19 @@
 - **症状**:为「裁决记录」「交棒」各建一个 md 台账,和 git/transcript 双重记账、易漂移。
 - **规则**:**裁决/驳回/跳过亲验的理由随 commit message 落库**;**交棒 = finishing 的 transcript 本身**
   (助手回复进会话 → 转写成 scratch transcript,尾部固定「下 session 开场提示词」段)。不建独立台账。
-- **在哪强制**:机制已删;`docs/design.md` §2.1/§2.5/§2.6、`planner/SKILL.md`、`finishing/SKILL.md` 引用点已改写。
+- **在哪强制**:`docs/design.md` 的文档职责与复审说明、`planner/SKILL.md`、`finishing/SKILL.md`。
 
-## FM-5 · worker 自报 pytest 结果 —— 既冗余又不可信
+## FM-5 · worker 自述与机器检查混为一谈
 
-- **症状**:worker 报告里带一段自测 pytest 结果,与脚本亲产的全量结果重复、且可被 worker 粉饰。
-- **规则**:**pytest 由 `run_worker.sh` 亲产**;worker 报告收窄为三段 —— ①落地方式 ②偏离 ③矛盾报告。
-  「报告前自测绿」的纪律保留(自测是 worker 的义务,但结果以脚本亲产为准)。
-- **在哪强制**:`planner/worker-preamble.md`(删 ③pytest 段)。
+- **症状**:worker 报告里带自测 pytest 或文档检查结果,与脚本亲产的结果重复、且可被 worker 粉饰。
+- **规则**:施工审路径由 `run_worker.sh` 亲产机器事实；worker 报告给出结果与证据、重要偏离、矛盾与待定。报告回传给 planner 作为待核实证据。`SKIP_REVIEW=1` 明确跳过 pytest 与 `check_docs`，回显说明未执行项，不能把探索执行标成验收通过。自测仍有价值，其适用范围与脚本检查分开陈述。
+- **在哪强制**:`planner/worker-preamble.md`、`run_worker.sh` 回显与状态派生。
 
 ## FM-6 · pytest 全文灌进派单回显 —— 淹没信号
 
-- **规则**:回显只给**摘要**(`pytest: 全绿` 或 `pytest: 红` + `grep '^FAILED' | head -20`);
-  全文留 `run.log`,`PYTEST_RC` 照常进 derive。
-- **在哪强制**:`run_worker.sh` 回显段。
+- **规则**:回显只给摘要：成功状态，或最多 20 行 `FAILED`；没有该格式时显示失败退出码，全文留 `run.log`，`PYTEST_RC` 照常进 derive。
+- **补充触发**:配置的测试命令失败但不输出 `FAILED` 时，原来的 grep 管道在 `set -e` 下中断回显。摘要提取允许零匹配，仍完整报告失败并收束 run。
+- **在哪强制**:`run_worker.sh` 回显段，`test_run_worker.sh` 的真实失败命令用例。
 
 ## FM-7 · 非 git 环境静默兜底 —— 定位漂到错仓
 
@@ -74,11 +73,18 @@
   历史教训写进**本文件**,不写进代码。
 - **在哪强制**:`lib_timeout.sh` / `call_agent.sh` / `discipline.md` 已清;新代码 review 时照此把关。
 
+## FM-9 · finding 用 sentinel 块,不用 yaml-fence / 嵌套 JSON
+
+- **规则**:每条 `<<<FINDING` … `FINDING>>>`,字段各占一行,值可含冒号与引号、无嵌套转义。实测 sentinel/jsonl 干净率 100%,yaml-fence 50%(整块 ScannerError);sentinel 再以无转义负担和人读性优于 jsonl。语义仍是 `severity` / `where` / `claim` / `failure_scenario`。
+- **在哪强制**:`review-preamble.md` / `wo-review-preamble.md` 的输出格式;`derive_status.sh` 解析。
+
 ---
 
-## 确认过、**不属**失效模式(别手贱删)
+## 保留的有效能力
 
 - codex/cursor **双后端**(有意的跨厂异构第二双眼)。
 - `install.sh` 里对旧 `.claude/hooks/` 残留的升级清理(升级路径卫生)。
 - `.git/info/exclude` 的 `/.cursor/` `/.agents/` 忽略项。
 - WO 审 / 双验收并行 / 意图闸门 / check_docs / 四态派生 —— 均有真实消费者。
+
+WO 审保留为显式可选能力。它在未经验证的方案错误会带来明显返工，或用户明确要求时提供价值；默认流程不因每张工单都必须审而启用它。施工审仍可审工单本身，并应围绕目标、实际调用链、证据有效性和方案必要性给出具体 finding。双审同样按独立增益选择，不以固定档位自动触发。

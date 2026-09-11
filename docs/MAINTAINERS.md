@@ -26,8 +26,9 @@
 
 ## 改机制的门禁
 1. 改 `kit/scripts/` / `kit/git-hooks/` / `install.sh` → **push 前本地跑 `bash kit/scripts/tests/run-all.sh`,绿了再 push**。
-   跑五件:`test_derive`(18 例)/ `test_call_agent_stream` / `test_intent_gate` /
-   `test_staged`(即 check_docs 自检)/ `test_install_smoke`(装进临时 git repo 验 `.workflow/` 投影两模式 / exclude 粒度 / backend 矩阵 / pre-commit)。
+   测试集合须包含 `test_derive`、`test_call_agent_stream`、`test_intent_gate`、`test_run_worker.sh`、
+   `test_staged`(即 check_docs 自检)和 `test_install_smoke`(装进临时 git repo 验 `.workflow/` 投影两模式 / exclude 粒度 / backend 矩阵 / pre-commit)。
+   测试用例数量随实现变化，不在维护文档中固定套数。
    solo 私有仓,不上 CI —— 靠这条本地纪律,不靠云端跑一遍。
 2. 触碰 derive / 双验收 / 越界 / 定位逻辑前,**先读 `docs/failure-modes.md`** 对应条目——那些坑填过一次。
 3. 新加代码别写疤痕注释(纪律⑥/FM-8):历史教训进 `docs/failure-modes.md`,代码里只留正面契约。
