@@ -1,6 +1,6 @@
 # AGENTS.md — 本项目 agent 指令(常驻)
 
-> 本文件 = 项目工具约定 + 文档地图(留仓根,codex/cursor 直接读);`CLAUDE.md` = 一行 `@AGENTS.md`(CC 的 import,展开得本文全文)。保持短。
+> 本文件 = 项目工具约定 + 文档地图，CC / Codex / Cursor 共用的根指令入口。保持短。
 > **进项目先读 discipline,再读本文件**(discipline = 六条纪律 + 脊椎,见 `.workflow/kit/discipline.md`)。
 
 ## 项目工具约定
@@ -26,5 +26,6 @@
 | workflow.env | `.workflow/workflow.env` | 本机命令 / 模型档(忽略) |
 | kit scripts | `.workflow/kit/scripts/` | 派单 / check_docs 等 |
 | scratchpad | `.workflow/scratchpad/` | 临时产物(忽略) |
+| 会话归档 | `.workflow/scratchpad/_archive/` | cleaning 生成的精炼对话，本机长期保留、忽略；按相关性读 |
 
 冷启动顺序:discipline → AGENTS → architecture → TODO → 相关 ADR。

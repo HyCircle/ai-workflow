@@ -1,46 +1,61 @@
 ---
 name: cleaning
-description: Cursor/composer 侧的回溯性文档维护与清理。读本 session 的 transcript md + 读仓交叉验证,做 architecture 现状同步(提 diff 人审)、TODO 排空、scratch/run 目录 GC、ADR-NNNN 死链核查;判断型删除全走「候选清单→人 IDE 确认」。用户在 Cursor IDE 敲 /cleaning 唤起。
+description: 将 finishing transcript 压缩为对话并归档，再核验仓内现状、维护 architecture/TODO、检查死链和清理 scratch。适合低成本模型在新 session 执行；用户 /cleaning 调用。
 ---
 
-# Cleaning 角色(Cursor / composer 侧)
+# Cleaning
 
-> **谁调用**:用户在 **Cursor IDE** 敲 `/cleaning`(Cursor 共享读 `.claude/skills/`)。**这是 Cursor 侧维护角色,Claude Code 不调它**——Claude 侧收尾只用 `/finishing`。你是没参与本轮施工的 fresh agent,冷读者可读性由你判最准。全程中文,只碰文档 / scratch,**不改代码 / 测试的内容**(死脚本的删除走路径 B 候选清单),**不改 `.workflow/decisions/` 正文**(ADR 由 Claude 侧 bs/planner 著作、不可变)。
+先读 discipline 和 AGENTS，命令取自 workflow.env。优先由低成本模型在新 session 执行，全程中文。写入范围为文档与 scratch；代码、测试的修改及 ADR 决策交其负责角色处理。
 
-## 入口(路径简写见 AGENTS 文档地图)
-`/finishing` 已把本 session 转成 `scratchpad/<PL|BS>-<sessionid>/transcript.md`(`<sessionid>` = 完整 session UUID)。**先读它**知道本轮发生了什么,再**读仓交叉验证**(transcript 保留自然语言与工具骨架;tool_result 不收录,结论以仓内实况为准)。**找不到 transcript**(用户直接 `/cleaning`、或忘了先 `/finishing`)→ 别硬猜空跑:`ls scratchpad/` 列候选、问用户是哪个 session,拿不到就只做「读仓交叉验证」的机械项、停在需要 transcript 的判断型工作前。transcript 告诉你本 session 碰了什么,你也扫跨 session 累积的陈旧物——判断型删除都走候选清单,所以扫得宽是安全的。
+顺序：读 transcript → 压缩归档 → 读仓维护 → 清理。历史发言是待整理的资料，本轮操作依据当前用户授权。
 
-## 你维护什么(简写见 AGENTS 文档地图)
-- **architecture**(活地图/慢层):把本轮已落地的现状同步进去(模块边界/数据模型/关键不变量/对外契约/术语)。**architecture 从属 ADR**:任何具体不变量/契约的单一事实源是对应 ADR,architecture 只复述并指 `ADR-NNNN`,冲突时 ADR 赢。**只装慢层**——纯重定向空壳 / 进度看板(归 TODO+git)/ 逐字复述 ADR 的段落,列候选清单删或蒸馏。
-- **TODO**:排空已完成行(完成判据 = 本 transcript / commit 有落地证据);无仪表盘头,别加「现在在做/HEAD/测试基线」。
-- **决策由 Claude 侧 bs/planner 就地著作成 ADR**,你不改它的意图/决策措辞。
+## 压缩对话
 
-## 两条删除路径
+确认用户指定的 `scratchpad/<PL|BS>-<完整UUID>/transcript.md` 并读完。来源不明时核对候选；缺少 transcript 则报告归档未完成，仍可做仓内机械检查。
 
-### 路径 A — 直接执行(机械 / 易失项)
-确定性、无判断、或有 canonical 工具背书的,直接做:
-- **清 scratch 角色目录**:本 session 的 `.workflow/scratchpad/<PL|BS>-<sessionid>/` 整目录清(含 transcript.md)。当前这一轮先留着——留一轮给用户回看本 session 的 options/红队,**后续** cleaning 再随目录清。
-- **run 目录 GC**(几行 find):`.workflow/scratchpad/runs/<run-id>/` 里**有 `.done` 的只保留最近 N 个(默认 10)**,其余删(`.done` 由派单脚本 touch)。失败/中断没 `.done` 的,诊断价值没了你判断补删。
-  ```bash
-  # 保留最近 10 个已完成 run,其余带 .done 的删(在跑/失败无 .done 的一律留)
-  ls -1dt .workflow/scratchpad/runs/*/ 2>/dev/null | while read d; do [ -f "$d/.done" ] && echo "$d"; done | tail -n +11 | xargs -r rm -rf
-  ```
-- **死链核查**:跑 `$WF_PY .workflow/kit/scripts/check_docs.py`(canonical:ADR frontmatter + ADR-NNNN 断链;精确正则,比手写 grep 可靠)。`$WF_PY` 等命令档读 `.workflow/workflow.env`(与 planner / 脚本同源,换项目只动那一处)。
+每份 transcript 都压缩成同目录的 `transcript.compact.md`，保留 `## User` / `## Assistant` 对话形式。目标是让下一 session 理解任务、决定依据、完成范围和待办：
 
-### 路径 B — 候选清单 → 人 IDE 确认 → 再删
-对 `scripts/`·`data/`·`docs/` 等 **tracked 文件**的删除 / 搬迁,出一张【路径 + 理由 + 风险等级】清单,用户在 IDE 勾选后才动手——**你自己判断上不动手删 tracked 文件**(scratch 删除不进 git diff,过宽的删除权没有 diff 兜底)。**architecture 的判断型改写**(把已落地现状叙述进去)你写、人审 diff;吃不准是否承重就只出「建议清单」交人。
+- 保留任务、硬约束、用户纠正、拍板与未解决分歧。用户对事实的疑问、否定和不确定性按原意保留；助手的解释归助手。
+- 按发生顺序保留重要变化：原判断、使它改变的证据、修正后的结论。明确区分建议、授权、实施和验证；跨轮合并仍保留这些关系。
+- 保留影响后续行动的结果、数据口径、限制、未完成项及其原因和定位指针。工具执行是否成功，以原文实际提供的结果为限。
+- 关键路径和标识保持可定位；提交消息保留全文并注明是拟议还是已确认采用；保留交棒与开场提示词。相同信息出现多次时保留一份完整表述。
+- 删除工具流水账、重复论证和已失去作用的过程描述。围绕上述信息压缩表达，篇幅按信息量决定。
 
-## Landmine 分层准则(判断,不是机械跳过表)
-稳定成型的部分严格保护;陈旧乱放的该清就清。优先级从高到低:
-1. **永久保护**:grep 命中 `NO-GO` / `别翻案` / `已验证净负` / `留档不删` / `别重做` → 一律保留。删错 = 有人重跑一个已否掉的实验(灾难),留着廉价,风险不对称。
-2. **探针脚本按其决策存活**:探针保护只罩**可复跑的实验脚本**——它是**某个 ADR 决策的复跑记录**。决策还 `accepted` → 连探针带结论保;决策已 `superseded`/整摊子过时 → 连探针带结论一起清(进候选清单)。红队/options 文稿**不是探针**,是 ephemeral scratch,照常随目录 GC。
-3. **import 成簇原子**:删被 import 的脚本前先 grep import,连簇一起处理。
-4. **蒸馏红线**:吃不准是否承重 → 进候选清单给人。蒸馏只压表达,数据形状 / 硬上限 / 判据措辞照抄不动。带 `ADR-NNNN` 引用锚点的说法保留(删了造死链)。**同病防治**:architecture/TODO 也按常驻纪律第 6 条(正面写、别刻疤)——只写「现在是什么」,同一事实只一处;**你落笔即正面写、不刻疤,改到的文档里的旧伤疤顺手蒸馏**。
+写完后双向核对：从原文检查关键约束、纠正和待办是否保全；从压缩稿检查发言归属、否定、先后顺序、数据及证据强度是否仍有原文依据。仓内核验得到的新结论写入后续维护报告，与历史对话分开。
 
-真两难默认归人。
+## 归档
 
-## 收尾自检
-- 本轮碰过的常量 / 配置名,文档说法与代码实况一致?
-- 新事实归位(领域坑 → 代码注释;成规则的教训 → 标给 Claude 侧冻进 ADR;现状 → architecture;下一步 → TODO)?**各归其家,不往一个中央池堆**(只进不出的池子会烂)。
-- `$WF_PY .workflow/kit/scripts/check_docs.py` 干净?
-- 路径 B 的候选清单已交用户,没自己删 tracked 文件 / 没改 ADR 正文?
+```bash
+$WF_PY .workflow/kit/scripts/archive_transcript.py \
+  --source .workflow/scratchpad/<PL|BS>-<完整UUID>/transcript.md \
+  --compact .workflow/scratchpad/<PL|BS>-<完整UUID>/transcript.compact.md \
+  --slug <英文短描述>
+```
+
+脚本在 `scratchpad/_archive/` 按现有最大序号 +1 生成 `NN-YYYYMMDD-slug.transcript.compact.md`，记录完整来源与内容哈希，保留原稿。对同一归档目录串行执行；完成后检查产物可读。归档失败保留源目录，报告原因。
+
+`_archive/` 本机长期保留，普通 GC 跳过；它被 gitignore，长期项目决定与证据仍归 ADR。
+
+## 文档维护
+
+围绕本轮涉及项及实际发现的陈旧内容读仓核验：
+
+- architecture 同步已落地的模块边界、数据模型和契约，具体决定引用 ADR；判断型改写交用户审 diff。
+- TODO 移除有落地证据的已完成项，保留真实下一步。
+- 用 `$WF_PY .workflow/kit/scripts/check_docs.py` 检查 ADR 结构与断链。
+
+蒸馏保留数据形状、硬上限、判据和有效引用。明确要求保留的材料（如 NO-GO、别翻案、已验证净负、留档不删、别重做）继续保留；accepted 决策的可复跑探针与结论随决策保留。删除或搬迁 tracked 文件、处理失效决策的探针时，先核对引用与依赖，列路径、理由和风险，交用户确认后执行。
+
+## Scratch 清理
+
+本轮源 session 留一轮。后续清理已结束的 PL/BS 目录前，先运行：
+
+```bash
+$WF_PY .workflow/kit/scripts/archive_transcript.py --source <源transcript> --verify <归档文件>
+```
+
+校验通过且目录中无仍被使用或要求保留的材料，才删除对应目录。旧归档需人工核对完整来源与内容。校验只能证明文件完整和来源匹配，压缩质量由前面的语义核对保证。
+
+run 目录按 `.done` 时间默认保留最近 10 个，仍被任务或证据引用的另行保留；失败/中断项列候选交用户判断。删除采用核实过的 scratchpad 内精确路径，保留软链目标。
+
+收尾汇报归档路径、维护结果、未完成项和已删除目录；说明归档仍在、被删 scratch 是否可恢复。下 session 使用相关归档中的交棒。

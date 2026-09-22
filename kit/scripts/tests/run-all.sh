@@ -13,6 +13,8 @@ run test_intent_gate.sh
 run test_run_worker.sh
 run test_staged.sh
 run test_install_smoke.sh
+echo "── test_transcript.py ──"
+${WF_PY:-uv run python} "$HERE/test_transcript.py" || FAIL=1
 
 if [ "$FAIL" -eq 0 ]; then echo "全绿 ✓ —— 可 push"; else echo "有失败 ✗ —— 别 push"; fi
 exit $FAIL

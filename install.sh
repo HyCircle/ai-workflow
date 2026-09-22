@@ -4,11 +4,11 @@
 #
 #   --track     (默认)  设计资产(decisions/ architecture.md TODO.md VERSION)版本化;exclude 只收机制层 +
 #                        本机配置 + scratch(/.workflow/kit/ /.workflow/workflow.env /.workflow/scratchpad/)。
-#   --no-track           整个 /.workflow/ + 根发现文档(AGENTS.md CLAUDE.md)全 exclude,不版本化(ADR 易失,
+#   --no-track           整个 /.workflow/ + 根发现文档(AGENTS.md)全 exclude,不版本化(ADR 易失,
 #                        用户已接受;适合生产/消费仓与工作流命名空间隔离)。
 #   --backends  csv      建哪些后端根入口(cc→.claude、codex→.agents、cursor 蹭别人不单建)。默认 cc。
 #
-# 装什么:.workflow/kit/(机制 copy 快照) + .workflow/{decisions,VERSION}(设计资产 seed) + 根 AGENTS.md/CLAUDE.md
+# 装什么:.workflow/kit/(机制 copy 快照) + .workflow/{decisions,VERSION}(设计资产 seed) + 根 AGENTS.md
 #         + 后端入口(skills 真源一份 = .workflow/kit/skills,给只认自家目录的后端各建软链入口)
 #         + git pre-commit(校验待提交文档结构)。
 # 忽略项写进目标 .git/info/exclude(本地、不碰 tracked .gitignore),装进已有项目零改其版本库。
@@ -70,7 +70,7 @@ if [ ! -f "$WF/decisions/0000-template.md" ]; then
   cp "$KIT_SRC/seed/decisions/0000-template.md" "$WF/decisions/"
 fi
 
-# 根发现文档:AGENTS.md = 唯一全文真源(留仓根);CLAUDE.md = 一行 @AGENTS.md(CC import,不再软链)。
+# 根发现文档:AGENTS.md = 唯一全文真源(留仓根)。
 if [ -f "$DEST/AGENTS.md" ]; then
   if grep -qE '\.workflow/kit/discipline(\.md)?' "$DEST/AGENTS.md"; then
     :
@@ -82,8 +82,15 @@ if [ -f "$DEST/AGENTS.md" ]; then
 else
   cp "$KIT_SRC/seed/AGENTS.md" "$DEST/AGENTS.md"
 fi
-[ -L "$DEST/CLAUDE.md" ] && rm -f "$DEST/CLAUDE.md"          # 迁移:旧布局的 CLAUDE.md→AGENTS.md 软链换成 import 行
-[ -e "$DEST/CLAUDE.md" ] || printf '@AGENTS.md\n' > "$DEST/CLAUDE.md"
+# 只迁移工作流生成的入口,保留项目自行维护的文件与其他软链。
+if { [ -L "$DEST/CLAUDE.md" ] && [ "$(readlink "$DEST/CLAUDE.md")" = "AGENTS.md" ]; } || \
+   { [ ! -L "$DEST/CLAUDE.md" ] && [ -f "$DEST/CLAUDE.md" ] && \
+     [ "$(cat "$DEST/CLAUDE.md")" = "@AGENTS.md" ]; }; then
+  rm -f "$DEST/CLAUDE.md"
+  echo "✓ 已移除工作流旧 CLAUDE.md 入口;根指令使用 AGENTS.md"
+elif [ -e "$DEST/CLAUDE.md" ] || [ -L "$DEST/CLAUDE.md" ]; then
+  echo "⚠ 保留项目自有 CLAUDE.md;请将需要的项目指令合入 AGENTS.md 后自行移除"
+fi
 
 # ── 4. 后端入口:skills 真源一份 = .workflow/kit/skills;给只认自家目录的后端各建软链入口(相对链,可移植)──
 _skills_entry () {   # $1 = 根入口目录名(.claude / .agents)
@@ -137,7 +144,6 @@ if [ -d "$DEST/.git" ]; then
       # 整个 .workflow/ + 根发现文档全排(不版本化)。
       echo "/.workflow/"
       echo "/AGENTS.md"
-      echo "/CLAUDE.md"
     fi
     { [ "$HAS_CC" = "1" ] || [ "$BORROW_CLAUDE" = "1" ]; } && echo "/.claude/"
     [ "$HAS_CODEX" = "1" ] && echo "/.agents/"

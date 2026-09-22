@@ -31,9 +31,9 @@ grep -q '^ai-workflow ' "$DEST/.workflow/VERSION" 2>/dev/null && _ok "[track] VE
 [ -f "$DEST/.workflow/decisions/0000-template.md" ] && _ok "[track] decisions/0000-template seed" || _no "[track] ADR 模板未 seed"
 [ -f "$DEST/AGENTS.md" ]                             && _ok "[track] AGENTS.md seed(仓根)"       || _no "[track] AGENTS.md 未 seed"
 
-# CLAUDE.md = 一行 @AGENTS.md(非软链)
-[ ! -L "$DEST/CLAUDE.md" ] && [ "$(cat "$DEST/CLAUDE.md" 2>/dev/null)" = "@AGENTS.md" ] \
-  && _ok "[track] CLAUDE.md = @AGENTS.md(非软链)" || _no "[track] CLAUDE.md 非预期"
+# AGENTS.md 为唯一生成的根入口。
+[ ! -e "$DEST/CLAUDE.md" ] && [ ! -L "$DEST/CLAUDE.md" ] \
+  && _ok "[track] 不生成 CLAUDE.md" || _no "[track] 意外生成 CLAUDE.md"
 
 # cc 后端:.claude/skills 软链 → kit/skills
 [ -L "$DEST/.claude/skills" ] && [ -d "$DEST/.claude/skills/planner" ] \
@@ -59,7 +59,7 @@ mkdir -p "$DEST2"; git init -q "$DEST2"
 "$INSTALL" --no-track "$DEST2" >/dev/null 2>&1 || _no "[no-track] install.sh 退出非零"
 grep -qxF "/.workflow/" "$DEST2/.git/info/exclude" && _ok "[no-track] exclude 整包收 /.workflow/" || _no "[no-track] 未整包排 .workflow"
 grep -qxF "/AGENTS.md" "$DEST2/.git/info/exclude"  && _ok "[no-track] exclude 收 /AGENTS.md"       || _no "[no-track] 未排 AGENTS.md"
-grep -qxF "/CLAUDE.md" "$DEST2/.git/info/exclude"  && _ok "[no-track] exclude 收 /CLAUDE.md"       || _no "[no-track] 未排 CLAUDE.md"
+grep -qxF "/CLAUDE.md" "$DEST2/.git/info/exclude" && _no "[no-track] 残留 CLAUDE.md exclude" || _ok "[no-track] 不排项目自有 CLAUDE.md"
 
 # ─────────── C. backend 矩阵:cc,codex ───────────
 DEST3="$TMP/multi"
@@ -75,5 +75,16 @@ grep -qxF "/.workflow/" "$DEST/.git/info/exclude"        && _ok "[switch] 重装
 grep -qxF "/.workflow/kit/" "$DEST/.git/info/exclude"    && _no "[switch] 仍残留 track 粒度(stale)"       || _ok "[switch] track-only 行已清除"
 blocks2="$(grep -cF ".workflow 投影 + 后端入口" "$DEST/.git/info/exclude" 2>/dev/null || echo 0)"
 [ "$blocks2" = "1" ] && _ok "[switch] 切模式后仍仅一份块" || _no "[switch] 块数异常($blocks2)"
+
+# 升级只清工作流的导入文件/软链，保留自有内容。
+printf '@AGENTS.md\n' > "$DEST/CLAUDE.md"
+"$INSTALL" "$DEST" >/dev/null 2>&1 || _no "[migration] import 升级失败"
+[ ! -e "$DEST/CLAUDE.md" ] && _ok "[migration] import 移除" || _no "[migration] import 残留"
+ln -s AGENTS.md "$DEST/CLAUDE.md"
+"$INSTALL" "$DEST" >/dev/null 2>&1 || _no "[migration] symlink 升级失败"
+[ ! -L "$DEST/CLAUDE.md" ] && _ok "[migration] 旧软链移除" || _no "[migration] 旧软链残留"
+printf 'custom instructions\n' > "$DEST/CLAUDE.md"
+"$INSTALL" "$DEST" >/dev/null 2>&1 || _no "[migration] custom 升级失败"
+[ "$(cat "$DEST/CLAUDE.md")" = "custom instructions" ] && _ok "[migration] 自有内容保留" || _no "[migration] 自有内容丢失"
 
 [ "$FAIL" -eq 0 ]

@@ -24,9 +24,9 @@
     architecture.md  TODO.md
     workflow.env              # 本机配置(永远 exclude)
     scratchpad/               # 临时产物(永远 exclude)
+      _archive/               # 精炼对话，本机长期保留，GC 不清
     VERSION                   # ai-workflow 的 tag + commit
   AGENTS.md                   # 根发现文档(留仓根)
-  CLAUDE.md                   # 一行 @AGENTS.md(CC import,非软链)
   .claude/ .agents/ .cursor/  # 按 --backends 建的后端入口
   .git/hooks/pre-commit
 ```
@@ -53,7 +53,7 @@
 
 - skills 真源 = `.workflow/kit/skills`;CC → `.claude/skills`、codex → `.agents/skills`(仓内相对软链)。
 - cursor 不单建入口;仅 cursor 时借 `.claude/skills`。
-- `AGENTS.md` = 全文真源;`CLAUDE.md` = 一行 `@AGENTS.md`。
+- `AGENTS.md` = 共用根指令入口。安装器仅移除工作流生成的旧 `CLAUDE.md` 导入入口，保留项目自有内容。
 
 ## 明确不做
 
@@ -65,7 +65,7 @@
 ## 备选与失效模式(已拍板)
 
 - **skills:cursor 不双读** — `.claude/skills` + `.agents/skills` 各一份安全。
-- **根文档:不用软链 CLAUDE→AGENTS**(cursor 会双读);用 `@AGENTS.md` import 行。
+- **根文档**：三后端共用 `AGENTS.md`；CC 的 Project instructions 设置须允许加载它。
 - **skills 软链**:harness 不认仓内软链时,install 可退 `cp -r`(在 exclude 内,升级覆盖)。
 
 ## install 默认
