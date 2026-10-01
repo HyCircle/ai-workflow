@@ -13,18 +13,19 @@
 - **贵模型的时间花在判断上**：主 agent 负责理解目标、拆解问题、裁决结果；写代码、跑实验可以派给便宜模型。
 - **不让同一个模型给自己打分**：验收默认交给和执行者不同家族的模型，比如 Cursor Composer 写、Grok 审，必要时再加 GPT 第二审。
 - **关键检查交给脚本**：派单入口是否写了目标、worker 是否改了不该改的文档、提交时 ADR 结构和引用是否完好，这些都由脚本和 git hook 检查，不依赖 agent 自觉。
-- **长期知识和临时产物分开放**：设计决策（ADR）、架构现状、待办进 git；工单、日志、验收单放在本地 scratchpad，用完即清；每次会话的对话压缩后长期归档在本机。
+- **长期知识和临时产物分开放**：设计决策（ADR）、架构现状、待办进 git；工单、日志、验收单放在本地 scratchpad，用完即清；每次会话由亲历者写一份归档，长期保存在本机；同类任务学到的做法和坑进按任务类型组织的手册。
 
 ## 核心概念
 
-### 四个角色（以 skill 形式提供，在主 agent 里用斜杠命令调用）
+### 五个角色（以 skill 形式提供，在主 agent 里用斜杠命令调用）
 
 | 命令 | 角色 | 做什么 |
 |---|---|---|
-| `/bs` | 脑暴 | 对一个设计问题提出 3 个以上真正不同的方案，交另一家模型红队，收敛后写成 ADR，冻结前再红队一次。不写代码。 |
+| `/bs` | 脑暴 | 对一个设计问题提出 3 个以上真正不同的方案，交另一家模型红队，收敛后写成或并入 ADR，冻结前再红队一次。不写代码。 |
 | `/planner` | 负责人 | 对任务结果负责：读现状，判断不确定性、风险和委派是否划算，然后自己做或写短 brief 派出去，最后核实结果、裁决是否完成。 |
-| `/finishing` | 收尾 | 给出简短交棒（结果、未完成项、下次开场提示词）和下一轮 `/cleaning <会话UUID>` 命令。 |
-| `/cleaning` | 清理 | 建议下一次会话用便宜模型执行：提取上次会话并压缩写入归档，然后在项目可写范围内全仓巡检——文档与代码对齐、死文件与重复、architecture / TODO、ADR 死链、旧 scratch；机械项直接改，删改受版本管理的文件先出候选清单给你确认。 |
+| `/finishing` | 收尾 | 本轮亲历者写一份会话归档（用户原话、决定与依据、已验证与未验证的结论、未完成项），更新 TODO，列出手册候选，回复交棒和下次开场提示词。 |
+| `/cleaning` | 清理 | 按需运行（攒几轮或文档明显过时时），适合便宜模型：把近期归档的手册候选合入 `patterns/`，在项目可写范围内全仓巡检——文档与代码对齐、死文件与重复、architecture / TODO、ADR 引用、旧 scratch；机械项直接改，删改受版本管理的文件先出候选清单给你确认。 |
+| `/holistic` | 整体审 | 项目变复杂或一个大阶段结束时用强模型执行：通读 architecture、全部 ADR 和关键代码，找跨 ADR 的冲突、重叠、接缝问题和多余复杂度，给出合并、删除、简化的整体方案，你确认后执行。 |
 
 另外还有两类被派出去的角色，由脚本调用，你不直接和它们对话：
 
@@ -35,13 +36,14 @@
 
 | 位置（安装后） | 放什么 | 是否进 git |
 |---|---|---|
-| `AGENTS.md`（仓根） | 项目工具约定 + 文档地图，三种 harness 共用的根指令 | track 模式下进 |
+| `AGENTS.md`（仓根） | 项目工具约定 + 文档路由（什么情况读什么），三种 harness 共用的根指令 | track 模式下进 |
 | `.workflow/kit/discipline.md` | 六条常驻纪律（少即是多、别打补丁叠补丁、别乱加兜底……） | 否（机制副本） |
-| `.workflow/decisions/NNNN-slug.md` | ADR：稳定的长期决策，不可原地改，只能用新 ADR 取代 | track 模式下进 |
-| `.workflow/architecture.md` | 当前设计现状的地图；和 ADR 冲突时以 ADR 为准 | track 模式下进 |
-| `.workflow/TODO.md` | 扁平的"下一步"清单，做完即删 | track 模式下进 |
+| `.workflow/decisions/NNNN-slug.md` | ADR：长期决策，每个主题一份，决定变了原地修改，旧版由 git 历史保存 | track 模式下进 |
+| `.workflow/architecture.md` | 系统现状的全局图；和 ADR 冲突时以 ADR 为准 | track 模式下进 |
+| `.workflow/TODO.md` | 扁平的下一步、未完成项和已知问题，做完即删 | track 模式下进 |
+| `.workflow/patterns/` | 按任务类型的手册：步骤、坑、验证清单 | track 模式下进 |
 | `.workflow/scratchpad/` | 工单、run 日志、验收单等临时产物 | 否 |
-| `.workflow/scratchpad/_archive/` | 压缩后的历史对话，本机长期保留，普通清理不删 | 否 |
+| `.workflow/scratchpad/_archive/` | finishing 写的会话归档，本机长期保留，普通清理不删 | 否 |
 
 ---
 
@@ -51,11 +53,11 @@
 |---|---|
 | bash、git、coreutils（`timeout`、`sha256sum`） | 所有脚本 |
 | `jq` | `run_worker.sh` 解析 token 用量 |
-| Python 3（只用标准库） | 文档检查、会话提取。默认通过 `uv run python` 调用，没有 uv 就把 `WF_PY` 改成 `python3` |
+| Python 3（只用标准库） | 文档检查。默认通过 `uv run python` 调用，没有 uv 就把 `WF_PY` 改成 `python3` |
 | 至少一个主 agent：Claude Code / Codex / Cursor | 运行 `/bs` `/planner` 等 skill |
 | 至少一个派单 CLI：`cursor-agent` 和/或 `codex` | worker 和 reviewer 外呼；需已登录 |
 
-> 只用 `/bs`、`/finishing`、`/cleaning`，或者 planner 全部自己动手时，可以不装派单 CLI。
+> 只用 `/bs`、`/finishing`、`/cleaning`、`/holistic`，或者 planner 全部自己动手时，可以不装派单 CLI。
 
 ---
 
@@ -116,16 +118,10 @@ WF_REVIEW_MODEL_STRONG="codex/gpt-5.6-terra"     # 更强的审查 / 第二审
 ```text
 /bs 我们的缓存层该用什么方案？          # 有设计问题：先发散，产出 ADR-0001
 /planner 按 ADR-0001 实现缓存层          # 落地：planner 自己做或派单
-/finishing                               # 收尾：交棒，末尾给出 /cleaning 命令
+/finishing                               # 收尾：写归档、更新 TODO、交棒
 ```
 
-下次会话开头（建议切到便宜模型）：
-
-```text
-/cleaning <上次会话UUID>
-```
-
-然后把上次交棒里的「下 session 开场提示词」贴进去，继续干活。
+下次会话把交棒里的「下 session 开场提示词」贴进去，继续干活。攒几轮后用便宜模型跑一次 `/cleaning`；项目变复杂时用强模型跑 `/holistic`。
 
 ---
 
@@ -137,8 +133,9 @@ planner    读目标和现状 → 分诊 → 自己做 或 写 brief 派单
            → 读结果、核实关键调用链 → 裁决 → 按需返工
 worker     在 brief 目标和边界内实现，回报结果、偏离和矛盾
 reviewer   只读审查实际改动，输出结构化 findings
-finishing  交棒（含 /cleaning 命令）
-cleaning   （下次会话）提取并压缩归档 → 全仓巡检 → 直接修机械项、判断项出清单 → 清旧 scratch
+finishing  写归档 → 更新 TODO → 列手册候选 → 交棒
+cleaning   （按需）合入手册 → 全仓巡检 → 直接修机械项、判断项出清单 → 清旧 scratch
+holistic   （按需）通读全局 → 找跨 ADR 问题 → 整体方案 → 用户确认后执行
 ```
 
 不是每项任务都要走完整流程。简单的局部修改，planner 直接自己改就行；遇到设计问题才需要 `/bs`；审查和第二审只在风险值得时才加。
@@ -202,17 +199,9 @@ STATUS 只是信息，不会拦住 commit。最终是否放行由 planner 判断
 
 ### 会话收尾与归档
 
-```bash
-# /cleaning 内部执行：从本机 CC / Codex / Cursor 日志提取上次会话（只保留用户和助手的正文，常见凭证打码）
-$WF_PY .workflow/kit/scripts/transcribe_session.py \
-  --session <完整UUID> --out .workflow/scratchpad/<UUID>.transcript.md
-#   找不到或有多个匹配时：用 --input <jsonl 路径> 代替 --session；--tools 保留工具调用骨架
+`/finishing` 由本轮的主 agent 直接写归档：`.workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.md`，首行记录后端、会话 UUID、分支与 HEAD。写的人就是做事的人，看过工具输出和中途的失败，不需要事后再从日志提取和压缩。用户的约束、纠正和拍板按原句引用；结论分开写已验证和未验证。
 
-# 模型压缩后直接写入 .workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.transcript.compact.md
-# 首行记录来源（后端、会话 UUID、原始日志路径），随后删除提取稿
-```
-
-提取放在下一次会话做：那时上次会话的日志已完整落盘，包含交棒。宿主会定期清理旧日志，cleaning 宜在下次开工时就跑。
+归档是冷存档，平时不读，需要追溯时再看。下次做同类任务会被读到的经验，放在 `patterns/` 手册里。
 
 归档在本机长期保留，但被 git 忽略，**不等于备份**。
 
@@ -236,17 +225,18 @@ $WF_PY .workflow/kit/scripts/transcribe_session.py \
 
 ```text
 your-project/
-├── AGENTS.md                    # 根指令：工具约定 + 文档地图
+├── AGENTS.md                    # 根指令：工具约定 + 文档路由
 ├── .workflow/
 │   ├── kit/                     # 机制副本（每次 install 整体覆盖）
 │   │   ├── discipline.md
-│   │   ├── skills/{bs,planner,finishing,cleaning}/
-│   │   ├── scripts/             # run_worker / call_agent / check_docs / transcribe …
+│   │   ├── skills/{bs,planner,finishing,cleaning,holistic}/
+│   │   ├── scripts/             # run_worker / call_agent / check_docs …
 │   │   ├── git-hooks/pre-commit
 │   │   ├── settings.json
 │   │   └── workflow.env.example
 │   ├── decisions/0000-template.md   # ADR 模板
 │   ├── architecture.md  TODO.md     # 自己建
+│   ├── patterns/                    # 手册，cleaning 合入时创建
 │   ├── workflow.env                 # 本机配置
 │   ├── scratchpad/                  # 临时产物（含 _archive/）
 │   └── VERSION                      # 装的是哪个 tag / commit
@@ -261,7 +251,7 @@ your-project/
 
 | 模式 | 本地忽略 | 进 git |
 |---|---|---|
-| `--track`（默认） | `.workflow/kit/`、`.workflow/workflow.env`、`.workflow/scratchpad/`、后端入口目录 | `AGENTS.md`、`decisions/`、`architecture.md`、`TODO.md`、`VERSION` |
+| `--track`（默认） | `.workflow/kit/`、`.workflow/workflow.env`、`.workflow/scratchpad/`、后端入口目录 | `AGENTS.md`、`decisions/`、`architecture.md`、`TODO.md`、`patterns/`、`VERSION` |
 | `--no-track` | 整个 `.workflow/`、`AGENTS.md`、后端入口目录 | 无 |
 
 no-track 模式下 ADR 只存在本机，丢了就没了。换模式时重跑 install 即可，exclude 块每次都会重写。
@@ -278,7 +268,7 @@ skill 真源只有一份（`.workflow/kit/skills`），各入口都是指向它�
 
 ### 升级与重装
 
-改了本仓以后，在目标项目上重跑同一条 `install.sh` 命令。只有 `.workflow/kit/` 和 `VERSION` 会被覆盖；ADR、architecture、TODO、`workflow.env`、scratchpad 和已有的 `AGENTS.md` 都不会动。
+改了本仓以后，在目标项目上重跑同一条 `install.sh` 命令。只有 `.workflow/kit/` 和 `VERSION` 会被覆盖；ADR、architecture、TODO、patterns、`workflow.env`、scratchpad 和已有的 `AGENTS.md` 都不会动。
 
 安装时的几个提示：
 
@@ -297,9 +287,9 @@ ai-workflow/
 ├── install.sh        # 安装 / 升级到目标项目
 ├── kit/              # 机制本体，整包 copy 成目标项目的 .workflow/kit/
 │   ├── discipline.md
-│   ├── skills/       # bs / planner / finishing / cleaning（含 brief 模板、worker/审查 preamble、红队提示词）
+│   ├── skills/       # bs / planner / finishing / cleaning / holistic（含 brief 模板、worker/审查 preamble、红队提示词）
 │   ├── scripts/      # run_worker.sh  call_agent.sh  derive_status.sh  lib_timeout.sh
-│   │                 # check_docs.py  transcribe_session.py
+│   │                 # check_docs.py
 │   │   └── tests/    # run-all.sh 及各测试
 │   ├── git-hooks/pre-commit
 │   ├── settings.json
@@ -319,7 +309,6 @@ ai-workflow/
 - `call_agent.sh`：统一外呼 `cursor-agent` / `codex`，流式写日志，按角色超时并回收整棵进程树。退出码：0 正常，124 超时，3 agent 报错，4 流截断。
 - `derive_status.sh`：用机器检查结果和审查单纯派生 STATUS。
 - `check_docs.py`：检查 ADR 结构与断链，支持全仓、`--changed`、`--staged` 三种范围。
-- `transcribe_session.py`：提取三种后端的对话，头部记录来源。
 
 ### 修改机制
 

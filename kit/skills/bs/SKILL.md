@@ -7,10 +7,10 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 
 你戴上 **BS 帽**(用完摘):对一个设计问题**发散**,不收敛、不写代码、不出工单。全程用清晰易懂的中文回复。
 
-## 开工先读(路径简写见 AGENTS 文档地图)
+## 开工先读(路径简写见 AGENTS 文档路由)
 1. **Read discipline**——六条纪律 + 脊椎。
-2. **Read AGENTS**——工具约定 + 文档地图。
-3. 你的 memory、问题相关的 **ADR**(`decisions/NNNN-*.md`)与 architecture 现状。**只读相关那几个 ADR**,别通读所有决策(省 context)。
+2. **Read AGENTS**——工具约定 + 文档路由。
+3. architecture 全局现状,以及问题相关的 **ADR**(`decisions/NNNN-*.md`)。按文件名挑相关的读,不通读所有决策。
 
 ## 发散纪律
 - 至少 **3 个真正不同**的方案(不是一个方案的三个参数),每个都 steelman(用最强论证挺它)。
@@ -41,12 +41,13 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 **② 吸收批评,收敛,著作 ADR**——**记决策,不记实现**:
 - **只写有把握的长期决定**(不可逆 / 会被反复引用);拿不准的先别写,等实现里稳了由 planner 就地冻结。早期高频探索留 scratchpad。
 - 表达用最能让人看懂的方式:散文、格式字面量(正则 / 枚举 / 线上 JSON 样例)、接口签名、伪代码 / 算法都行。**一条硬边界——不搬真代码**(照抄的实现归代码 + 测试;判据与写法见模板)。
-- **写法**权威见 `.workflow/decisions/0000-template.md`:frontmatter(id/title/date/status/supersedes/superseded_by/tags)、**意图**(给人的散文 2–3 句)、**决策**(拍板做什么:不变量 / 边界 / 硬上限 / 明确不做,可配伪代码 / 算法;不搬真代码)、**备选与失效模式**、**后果**。
-- **ADR 号** = 现存最大 + 1(`ls .workflow/decisions/`),四位零填充;有 durable 证据(实验 json/csv、notebook)→ 建文件夹 `.workflow/decisions/NNNN-slug/`,主 md 与文件夹同名,证据就近同放(你著作时顺手把 scratchpad 的数据提升进去)。
+- **写法**权威见 `.workflow/decisions/0000-template.md`:frontmatter(id/title/date/status/tags)、**意图**(给人的散文 2–3 句)、**决策**(拍板做什么:不变量 / 边界 / 硬上限 / 明确不做,可配伪代码 / 算法;不搬真代码)、**备选与失效模式**、**后果**。
+- **先并入,再新建**:对照 architecture 与已有 ADR,同一主题的决定直接改原 ADR(旧版由 git 历史保存),确属新主题才新建;改动若与其他 ADR 冲突,一并改掉。
+- **新 ADR 号** = 现存最大 + 1(`ls .workflow/decisions/`),四位零填充;有 durable 证据(实验 json/csv、notebook)→ 建文件夹 `.workflow/decisions/NNNN-slug/`,主 md 与文件夹同名,证据就近同放(你著作时顺手把 scratchpad 的数据提升进去)。
 
 **③ 人审设计选择**:把各新 ADR 的目标、具体决定、关键依据、主要取舍和未验证部分简短呈现给用户,说明需要决定什么。已有授权覆盖的部分继续推进。
 
-**④ 冻结前过 ADR 红队(闸门2)**——动工前、纸面上,交异构只读模型审一遍收敛后的 ADR(批评固定落盘 redteam-adr-NNNN.md):
+**④ 冻结前过 ADR 红队(闸门2)**——动工前、纸面上,交异构只读模型审一遍新建或修改后的 ADR(批评固定落盘 redteam-adr-NNNN.md):
 ```bash
 .workflow/kit/scripts/call_agent.sh --mode read-only \
   --out .workflow/scratchpad/BS-<id>/redteam-adr-NNNN.md \

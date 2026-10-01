@@ -1,10 +1,8 @@
 ---
 id: 0000
 title: <一句话结论,陈述句非疑问句>
-date: YYYY-MM-DD
-status: proposed        # proposed | accepted | superseded | deprecated
-supersedes: []          # 取代了哪些 ADR,如 [7, 12];无则留空
-superseded_by: null     # 被哪个 ADR 取代(填 id);未被取代留 null
+date: YYYY-MM-DD        # 最近一次修改日期
+status: proposed        # proposed | accepted
 tags: []                # 领域标签,便于「碰这块前先读相关 ADR」,如 [auth, storage]
 ---
 
@@ -35,7 +33,7 @@ tags: []                # 领域标签,便于「碰这块前先读相关 ADR」,
 ADR 约定(新建时删掉本注释):
 - 文件名 decisions/NNNN-<kebab-英文-slug>.md,NNNN 四位零填充递增。frontmatter.id 必须与文件名一致。
 - 引用写 `ADR-NNNN`(断链检查认这个 token → 查 decisions/NNNN-*.md 在不在)。
-- **不可变**:决策变了 → 新开 ADR,新 ADR 的 supersedes 填旧 id,旧 ADR 的 status 改 superseded、superseded_by 填新 id。**不改旧 ADR 正文**——文件级 supersede,不在文件内打补丁。
+- **原地修改,一个主题一份**:决策变了直接改本文件正文并更新 date,让它始终是现行版本;旧版由 git 历史保存,正文不写变更记录。新决定属于已有主题时并入那份 ADR,确属新主题才新建。整体不再适用的 ADR 直接删除并清掉 `ADR-NNNN` 引用;值得保留的「为什么不这么做」写进相关 ADR 的备选一节。
 - **ADR 可单文件、也可文件夹**:无附件 → 单文件 `decisions/NNNN-slug.md`;有附件(原始数据 json/csv、notebook、一次性辅助脚本)→ 文件夹 `decisions/NNNN-slug/`,**主 md 与文件夹同名** `decisions/NNNN-slug/NNNN-slug.md`(不叫 README——编辑器多标签才认得出是哪个决策),所有相关文件就近同放该文件夹。ADR 正文只留结论 + 判据,数据在旁。
 - 一次性实验脚本随数据留在 ADR 文件夹;某脚本若成了长期复用工具,再毕业到 `scripts/`。
 - **只写有把握的长期决定**:决定稳定(不可逆 / 会被反复引用)、且你有把握时才建 ADR;没把握的部分留待实现里稳了,由 planner 就地冻结。早期高频探索留 scratchpad。

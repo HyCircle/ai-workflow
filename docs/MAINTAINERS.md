@@ -5,12 +5,12 @@
 > 绝不在项目里的投影副本上改再回抓。SOT 布局与消费仓 `.workflow/kit/` **同构**,脚本一套路径逻辑两处都对。
 
 ## 冷启动读什么
-`kit/discipline.md`(六条纪律)→ `seed/AGENTS.md`(文档地图)→ `README.md`(用法)→ `docs/design.md`(设计权威)→
+`kit/discipline.md`(六条纪律)→ `seed/AGENTS.md`(文档路由)→ `README.md`(用法)→ `docs/design.md`(设计权威)→
 `docs/failure-modes.md`(改机制前必扫)→ 相关 `docs/history/`(历史归档,非现行规范)。
 
 ## 文档职责(一类信息一个家)
 - `kit/discipline.md` —— 六条纪律 + 脊椎。投影进 `.workflow/kit/`。
-- `seed/AGENTS.md` —— 消费仓根发现文档模板;**文档地图 + 路径简写真源**。install seed 到仓根。
+- `seed/AGENTS.md` —— 消费仓根发现文档模板;**文档路由 + 路径简写真源**。install seed 到仓根。
 - `docs/design.md` —— 设计权威 / 蓝图(给人 / 维护者读)。**不 seed 进消费项目,agent 不引用**。
 - `README.md` —— 本仓结构与用法总览。
 - `docs/failure-modes.md` —— 已知失效模式(留作纪律);改机制前必扫。**维护者面向,不投影**。
@@ -19,7 +19,7 @@
 - `docs/MAINTAINERS.md`(本文)—— 维护流程。
 
 ## 书写纪律(路径)
-- **消费仓运行时文档**(skills、seed/AGENTS):正文用 **AGENTS 文档地图** 里的简写;命令示例 / 脚本路径仍写全路径。
+- **消费仓运行时文档**(skills、seed/AGENTS):正文用 **AGENTS 文档路由** 里的简写;命令示例 / 脚本路径仍写全路径。
 - **`kit/` 投影纪律**:只引用 install 后消费仓**真实存在**的路径(`.workflow/*`、`AGENTS.md` 等)。**不得**引用 `docs/`、`README.md` 等仅本仓(SOT)有的文件——test 脚本除外(只在 ai-workflow 仓内跑)。
 - **维护者文档**(`docs/design.md` 等):§1 表格可用短名,章首注明消费仓物理路径在 `.workflow/` 下。
 - **活跃文档不写具体消费仓名**;迁移故事只留 `docs/history/`。
@@ -27,7 +27,7 @@
 ## 改机制的门禁
 1. 改 `kit/scripts/` / `kit/git-hooks/` / `install.sh` → **push 前本地跑 `bash kit/scripts/tests/run-all.sh`,绿了再 push**。
    测试集合须包含 `test_derive`、`test_call_agent_stream`、`test_intent_gate`、`test_run_worker.sh`、
-   `test_staged`(即 check_docs 自检)、`test_install_smoke`(装进临时 git repo 验 `.workflow/` 投影两模式 / exclude 粒度 / backend 矩阵 / pre-commit)和 `test_transcript.py`(三后端提取及来源头)。
+   `test_staged`(即 check_docs 自检)、`test_install_smoke`(装进临时 git repo 验 `.workflow/` 投影两模式 / exclude 粒度 / backend 矩阵 / pre-commit)。
    测试用例数量随实现变化，不在维护文档中固定套数。
    solo 私有仓,不上 CI —— 靠这条本地纪律,不靠云端跑一遍。
 2. 触碰 derive / 双验收 / 越界 / 定位逻辑前,**先读 `docs/failure-modes.md`** 对应条目——那些坑填过一次。

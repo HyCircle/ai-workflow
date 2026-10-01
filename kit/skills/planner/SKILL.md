@@ -9,7 +9,7 @@ description: 负责将用户任务或已接受的设计落地，选择自做或�
 
 ## 开工与分诊
 
-先读 discipline → AGENTS → 用户任务相关的 TODO、architecture、ADR，再查看实际代码、数据或接口。路径简写见 AGENTS；命令与模型读 `.workflow/workflow.env`，使用 `WF_TEST_CMD`、`WF_PY`、`WF_WORKER_MODEL`、`WF_REVIEW_MODEL`、`WF_REVIEW_MODEL_STRONG`。
+先读 discipline，按 AGENTS 文档路由只读当前任务需要的文档，再查看实际代码、数据或接口。路径简写见 AGENTS；命令与模型读 `.workflow/workflow.env`，使用 `WF_TEST_CMD`、`WF_PY`、`WF_WORKER_MODEL`、`WF_REVIEW_MODEL`、`WF_REVIEW_MODEL_STRONG`。
 
 分别判断三件事，简单任务无需写成表格：
 
@@ -25,7 +25,7 @@ description: 负责将用户任务或已接受的设计落地，选择自做或�
 
 发现矛盾时比较继续修、调整接口、缩小实验或撤回假设，选择最能推进目标的办法。实际改变用户目标、授权边界或已接受契约时，给用户具体方案、证据与取舍；已有授权覆盖的实现调整自主处理。
 
-长期决定有证据且稳定后，按 decisions 模板著作 ADR，进行单轮独立红队，并向用户展示具体决定、依据和未验证部分，按其授权接受。著作后跑 `$WF_PY .workflow/kit/scripts/check_docs.py`（或 `--changed`）自检结构与断链。改变既有契约时用新 ADR supersede 旧 ADR，保留旧正文。临时探索留 scratchpad；长期实验数据提升进 `decisions/NNNN-slug/`，ADR 不引用 scratchpad。需要发散设计时交 `/bs`。
+长期决定有证据且稳定后，先读 architecture 与相关 ADR，判断它与整体设计是否一致、能否并入已有 ADR：同一主题修改原 ADR，确属新主题才新建。按 decisions 模板著作，进行单轮独立红队，并向用户展示具体决定、依据和未验证部分，按其授权接受。改变既有契约时直接改原 ADR 正文，旧版本由 git 历史保存，向用户说明改了什么。临时探索留 scratchpad；长期实验数据提升进 `decisions/NNNN-slug/`，ADR 不引用 scratchpad。需要发散设计时交 `/bs`。
 
 ## 派单输入
 
@@ -86,4 +86,4 @@ WO_REVIEW=1 .workflow/kit/scripts/run_worker.sh .workflow/scratchpad/PL-<id>/WO-
 
 需要用户决定时，给出具体结果或方案、关键证据、主要取舍与尚未验证部分，说明要决定什么。日常实现调整在既有授权内继续，不逐轮重复请示。只在用户明确授权时 commit，遵循项目提交规范；重要裁决理由随提交说明保留。
 
-新长期决定成熟时就地著作。常规 architecture / TODO 维护交 `/cleaning`，session 收束用 `/finishing`。汇报区分实现完成、检查通过、真实结果已验证和剩余工作；负责人连续承担任务，按上下文需要压缩或交棒。
+新长期决定成熟时就地著作。session 收束用 `/finishing`，文档巡检按需用 `/cleaning`，项目整体变复杂时建议用户跑 `/holistic`。汇报区分实现完成、检查通过、真实结果已验证和剩余工作；负责人连续承担任务，按上下文需要压缩或交棒。

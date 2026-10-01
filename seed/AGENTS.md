@@ -1,7 +1,7 @@
 # AGENTS.md — 本项目 agent 指令(常驻)
 
-> 本文件 = 项目工具约定 + 文档地图，CC / Codex / Cursor 共用的根指令入口。保持短。
-> **进项目先读 discipline,再读本文件**(discipline = 六条纪律 + 脊椎,见 `.workflow/kit/discipline.md`)。
+> 本文件 = 项目工具约定 + 文档路由，CC / Codex / Cursor 共用的根指令入口。只放指向，不放状态与设计内容。
+> **进项目先读 discipline**(`.workflow/kit/discipline.md`,六条纪律 + 脊椎)。其余文档按下表在任务需要时读，不预读。
 
 ## 项目工具约定
 
@@ -14,18 +14,18 @@
 
 换型号 / 换厂就改这三个别名的值,不要在脚本或 skill 里写死具体型号。
 
-## 文档地图(冷启动读这张表;skills 正文用简写,以此为准)
+## 文档路由(skills 正文用简写,以此为准)
 
-| 简写 | 真路径 | 装什么 |
-|---|---|---|
-| discipline | `.workflow/kit/discipline.md` | 六条纪律 + 脊椎(kit 维护) |
-| AGENTS | `AGENTS.md`(本页,仓根) | 工具约定 + 本文地图 |
-| architecture | `.workflow/architecture.md` | 当前设计现状/地图(冲突时 ADR 赢) |
-| decisions | `.workflow/decisions/` | 冻结 ADR;引用 `ADR-NNNN`(多了再加 `index.md`) |
-| TODO | `.workflow/TODO.md` | 扁平「下一步」;设计债进 ADR |
-| workflow.env | `.workflow/workflow.env` | 本机命令 / 模型档(忽略) |
-| kit scripts | `.workflow/kit/scripts/` | 派单 / check_docs 等 |
-| scratchpad | `.workflow/scratchpad/` | 临时产物(忽略) |
-| 会话归档 | `.workflow/scratchpad/_archive/` | cleaning 生成的精炼对话，本机长期保留、忽略；按相关性读 |
+| 简写 | 真路径 | 装什么 | 什么时候读 |
+|---|---|---|---|
+| discipline | `.workflow/kit/discipline.md` | 六条纪律 + 脊椎(kit 维护) | 每次 |
+| architecture | `.workflow/architecture.md` | 系统现状全局图：模块边界、数据模型、关键不变量、已能用的功能 | 跨模块改动、改设计、需要全局判断时 |
+| decisions | `.workflow/decisions/` | ADR：每个主题一份现行长期决定，引用 `ADR-NNNN` | 动到某个决定涉及的边界或契约时，按文件名挑相关的读 |
+| TODO | `.workflow/TODO.md` | 下一步、未完成项、已知问题 | 接续之前的工作、找下一步时 |
+| patterns | `.workflow/patterns/` | 按任务类型的手册：步骤、坑、验证清单 | 当前任务属于某份手册的类型时(看文件名与文件头) |
+| 会话归档 | `.workflow/scratchpad/_archive/` | finishing 写的历史会话记录(本机保留、忽略) | 用户要求或需要追溯某次会话时 |
+| workflow.env | `.workflow/workflow.env` | 本机命令 / 模型档(忽略) | 跑命令、派单时 |
+| kit scripts | `.workflow/kit/scripts/` | 派单 / 外呼 | 派单时 |
+| scratchpad | `.workflow/scratchpad/` | 临时产物(忽略) | — |
 
-冷启动顺序:discipline → AGENTS → architecture → TODO → 相关 ADR。
+局部修改直接读相关代码、测试和数据。

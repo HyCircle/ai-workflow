@@ -2,7 +2,7 @@
 
 > **定位**:消费仓全部工作流产物收进 `<gitroot>/.workflow/`。取代根级散落投影(`.claude` / `scripts/workflow` /
 > `agent-discipline.md` 散落根级)及已废弃的 `install.sh --prefix`(见 `docs/history/extraction-plan.md` 第五节,**勿再采用**)。
-> **路径简写**:消费仓运行时文档(skills / discipline)用短名;真路径见 **AGENTS 文档地图**。
+> **路径简写**:消费仓运行时文档(skills / discipline)用短名;真路径见 **AGENTS 文档路由**。
 
 ## 意图(为什么)
 
@@ -22,9 +22,10 @@
       git-hooks/pre-commit    # 源(install 装进 .git/hooks/)
     decisions/                # 设计资产(ADR;含 0000-template)
     architecture.md  TODO.md
+    patterns/                 # 按任务类型的手册(设计资产,track 下进 git)
     workflow.env              # 本机配置(永远 exclude)
     scratchpad/               # 临时产物(永远 exclude)
-      _archive/               # 精炼对话，本机长期保留，GC 不清
+      _archive/               # finishing 写的会话归档，本机长期保留，GC 不清
     VERSION                   # ai-workflow 的 tag + commit
   AGENTS.md                   # 根发现文档(留仓根)
   .claude/ .agents/ .cursor/  # 按 --backends 建的后端入口

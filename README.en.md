@@ -15,18 +15,19 @@ This repository is the **single source** of the mechanism. You don't work in it 
 - **Expensive models spend their time on judgment.** The main agent understands the goal, breaks down the problem, and rules on the results. Writing code and running experiments can go to cheaper models.
 - **No model grades its own work.** By default, review goes to a model from a different family than the worker (for example, Cursor Composer writes and Grok reviews). A second GPT review can be added when it's worth it.
 - **Scripts do the key checks.** A script or git hook checks whether a work order states a goal, whether the worker edited docs it shouldn't touch, and whether ADR structure and references are intact at commit time. None of this relies on the agent remembering to check.
-- **Long-lived knowledge and scratch work live apart.** Design decisions (ADRs), the architecture overview, and the TODO list go into git. Work orders, logs, and review sheets stay in a local scratchpad and are cleaned up after use. Conversations are compacted and archived long-term on your machine.
+- **Long-lived knowledge and scratch work live apart.** Design decisions (ADRs), the architecture overview, and the TODO list go into git. Work orders, logs, and review sheets stay in a local scratchpad and are cleaned up after use. Each session is archived on your machine by the agent that did the work; lessons for recurring kinds of tasks go into task-type playbooks.
 
 ## Core concepts
 
-### Four roles (skills you run as slash commands in the main agent)
+### Five roles (skills you run as slash commands in the main agent)
 
 | Command | Role | What it does |
 |---|---|---|
-| `/bs` | Brainstorm | Takes a design question and produces at least 3 genuinely different options. A model from another family red-teams them. The chosen option is written up as an ADR, which gets red-teamed again before it's frozen. No code. |
+| `/bs` | Brainstorm | Takes a design question and produces at least 3 genuinely different options. A model from another family red-teams them. The chosen option is written up as a new ADR or merged into an existing one, which gets red-teamed again before it's frozen. No code. |
 | `/planner` | Owner | Owns the outcome of the task. Reads the current state and weighs uncertainty, risk, and whether delegating pays off. Then either does the work itself or writes a short brief and dispatches it. Finally it verifies the result and decides whether the task is done. |
-| `/finishing` | Wrap-up | Writes a short handoff (results, open items, an opening prompt for the next session) ending with the `/cleaning <session-UUID>` command for the next round. |
-| `/cleaning` | Cleanup | Best run at the start of the next session on a cheap model. Extracts the previous session and writes a compacted archive, then sweeps everything inside the project's writable scope: docs vs. code, dead files and duplication, architecture/TODO, ADR links, old scratch. Mechanical fixes are applied directly; deleting or rewriting tracked files goes through a candidate list you confirm. |
+| `/finishing` | Wrap-up | The agent that did the work writes a session archive (the user's own words, decisions and reasons, verified vs. unverified conclusions, open items), updates TODO, lists playbook candidates, and replies with a handoff and an opening prompt for the next session. |
+| `/cleaning` | Cleanup | Run on demand (every few sessions, or when docs look stale), on a cheap model. Merges playbook candidates from recent archives into `patterns/`, then sweeps everything inside the project's writable scope: docs vs. code, dead files and duplication, architecture/TODO, ADR references, old scratch. Mechanical fixes are applied directly; deleting or rewriting tracked files goes through a candidate list you confirm. |
+| `/holistic` | Overall review | Run on a strong model when the project grows complex or a major phase ends. Reads architecture, every ADR, and the key code; finds cross-ADR conflicts, overlap, seam bugs, and needless complexity; proposes an overall plan to merge, delete, and simplify, then executes what you confirm. |
 
 Two more roles are dispatched by scripts. You don't talk to them directly:
 
@@ -37,13 +38,14 @@ Two more roles are dispatched by scripts. You don't talk to them directly:
 
 | Location (after install) | Contents | In git? |
 |---|---|---|
-| `AGENTS.md` (repo root) | Project tool conventions and the doc map. The root instructions shared by all three harnesses. | Yes, in track mode |
+| `AGENTS.md` (repo root) | Project tool conventions and the doc router (what to read when). The root instructions shared by all three harnesses. | Yes, in track mode |
 | `.workflow/kit/discipline.md` | Six standing rules: less is more, no patch-on-patch, no silent fallbacks, … | No (installed copy) |
-| `.workflow/decisions/NNNN-slug.md` | ADRs: stable, long-lived decisions. Never edited in place; a new ADR supersedes an old one. | Yes, in track mode |
-| `.workflow/architecture.md` | Map of the current design. When it conflicts with an ADR, the ADR wins. | Yes, in track mode |
-| `.workflow/TODO.md` | Flat "next steps" list. Items are deleted when done. | Yes, in track mode |
+| `.workflow/decisions/NNNN-slug.md` | ADRs: long-lived decisions, one per topic. When a decision changes, edit it in place; git history keeps old versions. | Yes, in track mode |
+| `.workflow/architecture.md` | Global map of the current system. When it conflicts with an ADR, the ADR wins. | Yes, in track mode |
+| `.workflow/TODO.md` | Flat list of next steps, open items, and known issues. Items are deleted when done. | Yes, in track mode |
+| `.workflow/patterns/` | Playbooks per task type: steps, pitfalls, verification checklist | Yes, in track mode |
 | `.workflow/scratchpad/` | Work orders, run logs, review sheets | No |
-| `.workflow/scratchpad/_archive/` | Compacted past conversations, kept long-term on this machine and skipped by routine cleanup | No |
+| `.workflow/scratchpad/_archive/` | Session archives written by finishing, kept long-term on this machine and skipped by routine cleanup | No |
 
 ---
 
@@ -53,11 +55,11 @@ Two more roles are dispatched by scripts. You don't talk to them directly:
 |---|---|
 | bash, git, coreutils (`timeout`, `sha256sum`) | All scripts |
 | `jq` | Token-usage parsing in `run_worker.sh` |
-| Python 3 (standard library only) | Doc checks and conversation extraction. Called via `uv run python` by default; set `WF_PY="python3"` if you don't use uv. |
+| Python 3 (standard library only) | Doc checks. Called via `uv run python` by default; set `WF_PY="python3"` if you don't use uv. |
 | At least one main agent: Claude Code / Codex / Cursor | Running the `/bs`, `/planner`, … skills |
 | At least one dispatch CLI: `cursor-agent` and/or `codex`, logged in | Calling the worker and reviewer |
 
-> If you only use `/bs`, `/finishing`, and `/cleaning`, or if the planner does all the work itself, you can skip the dispatch CLIs.
+> If you only use `/bs`, `/finishing`, `/cleaning`, and `/holistic`, or if the planner does all the work itself, you can skip the dispatch CLIs.
 
 ---
 
@@ -119,16 +121,10 @@ Open your main agent in the project:
 ```text
 /bs What caching approach should we use?     # design question: explore, produce ADR-0001
 /planner Implement the cache per ADR-0001    # delivery: planner does it or dispatches
-/finishing                                   # wrap-up: handoff ending with the /cleaning command
+/finishing                                   # wrap-up: archive, update TODO, hand off
 ```
 
-At the start of the next session (ideally on a cheaper model):
-
-```text
-/cleaning <previous-session-UUID>
-```
-
-Then paste the "opening prompt for the next session" from the last handoff and carry on.
+In the next session, paste the "opening prompt for the next session" from the handoff and carry on. Every few sessions, run `/cleaning` on a cheap model; when the project grows complex, run `/holistic` on a strong one.
 
 ---
 
@@ -140,8 +136,9 @@ planner    read goal and current state → triage → do it yourself OR write a 
            → read results, verify the key call paths → rule → rework if needed
 worker     implement within the brief's goal and boundaries; report results, deviations, contradictions
 reviewer   read-only review of the actual changes; structured findings
-finishing  handoff (with the /cleaning command)
-cleaning   (next session) extract, compact, archive → repo-wide sweep → fix mechanical items, list judgment calls → prune scratch
+finishing  write archive → update TODO → list playbook candidates → hand off
+cleaning   (on demand) merge playbooks → repo-wide sweep → fix mechanical items, list judgment calls → prune scratch
+holistic   (on demand) read the whole design → find cross-ADR problems → overall plan → execute after user confirms
 ```
 
 Not every task needs the full cycle. The planner makes small local fixes itself. `/bs` is only for design questions. Reviews, and especially second reviews, are added only when the risk justifies them.
@@ -206,20 +203,9 @@ STATUS is information only and never blocks a commit. The planner makes the fina
 
 ### Wrap-up and archiving
 
-```bash
-# Run by /cleaning: extract the previous session from local CC / Codex / Cursor logs
-# (user and assistant text only; common credentials are masked)
-$WF_PY .workflow/kit/scripts/transcribe_session.py \
-  --session <full-UUID> --out .workflow/scratchpad/<UUID>.transcript.md
-#   Not found, or several matches: use --input <jsonl path> instead of --session.
-#   --tools keeps a skeleton of the tool calls.
+`/finishing` has the main agent of the session write the archive itself: `.workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.md`, whose first line records the backend, session UUID, branch, and HEAD. The writer is the agent that did the work and saw the tool output and the failed attempts, so nothing has to be extracted and compacted afterwards. The user's constraints, corrections, and decisions are quoted verbatim; verified and unverified conclusions are listed separately.
 
-# The model writes the compacted dialogue straight to
-# .workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.transcript.compact.md
-# (first line records backend, session UUID and raw log path), then deletes the extraction.
-```
-
-Extraction happens in the next session, when the previous session's log is fully flushed, handoff included. Hosts prune old logs periodically, so run cleaning when you next start work.
+Archives are cold storage: not read by default, only when you need to trace something back. Experience that should be picked up next time you do the same kind of task belongs in the `patterns/` playbooks.
 
 Archives are kept long-term on your machine, but git ignores them. **They are not a backup.**
 
@@ -243,17 +229,18 @@ Other rules: the worker never commits, and the main agent commits only when you 
 
 ```text
 your-project/
-├── AGENTS.md                    # root instructions: tool conventions + doc map
+├── AGENTS.md                    # root instructions: tool conventions + doc router
 ├── .workflow/
 │   ├── kit/                     # installed copy of the mechanism (overwritten on every install)
 │   │   ├── discipline.md
-│   │   ├── skills/{bs,planner,finishing,cleaning}/
-│   │   ├── scripts/             # run_worker / call_agent / check_docs / transcribe …
+│   │   ├── skills/{bs,planner,finishing,cleaning,holistic}/
+│   │   ├── scripts/             # run_worker / call_agent / check_docs …
 │   │   ├── git-hooks/pre-commit
 │   │   ├── settings.json
 │   │   └── workflow.env.example
 │   ├── decisions/0000-template.md   # ADR template
 │   ├── architecture.md  TODO.md     # you create these
+│   ├── patterns/                    # playbooks, created when cleaning merges the first one
 │   ├── workflow.env                 # local config
 │   ├── scratchpad/                  # scratch outputs (including _archive/)
 │   └── VERSION                      # which tag / commit was installed
@@ -268,7 +255,7 @@ Both modes produce the same files. The only difference is what's written to `.gi
 
 | Mode | Ignored locally | Committed |
 |---|---|---|
-| `--track` (default) | `.workflow/kit/`, `.workflow/workflow.env`, `.workflow/scratchpad/`, backend entry dirs | `AGENTS.md`, `decisions/`, `architecture.md`, `TODO.md`, `VERSION` |
+| `--track` (default) | `.workflow/kit/`, `.workflow/workflow.env`, `.workflow/scratchpad/`, backend entry dirs | `AGENTS.md`, `decisions/`, `architecture.md`, `TODO.md`, `patterns/`, `VERSION` |
 | `--no-track` | All of `.workflow/`, `AGENTS.md`, backend entry dirs | Nothing |
 
 In no-track mode your ADRs exist only on your machine; if you lose them, they're gone. To switch modes, re-run the installer. The exclude block is rewritten every time.
@@ -306,7 +293,7 @@ ai-workflow/
 │   ├── discipline.md
 │   ├── skills/       # bs / planner / finishing / cleaning (brief template, worker/review preambles, red-team prompts)
 │   ├── scripts/      # run_worker.sh  call_agent.sh  derive_status.sh  lib_timeout.sh
-│   │                 # check_docs.py  transcribe_session.py
+│   │                 # check_docs.py
 │   │   └── tests/    # run-all.sh and the test suites
 │   ├── git-hooks/pre-commit
 │   ├── settings.json
@@ -326,7 +313,6 @@ What each script does:
 - `call_agent.sh`: the single way to call `cursor-agent` / `codex`. It streams to the log, applies per-role timeouts, and kills the whole process tree on timeout. Exit codes: 0 OK, 124 timeout, 3 agent error, 4 truncated stream.
 - `derive_status.sh`: derives STATUS purely from the machine-check results and the review sheets.
 - `check_docs.py`: checks ADR structure and broken links, over the whole repo, `--changed` files, or `--staged` files.
-- `transcribe_session.py`: extracts conversations from all three backends, recording the source in a header.
 
 ### Changing the mechanism
 
