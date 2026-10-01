@@ -25,8 +25,8 @@ This repository is the **single source** of the mechanism. You don't work in it 
 |---|---|---|
 | `/bs` | Brainstorm | Takes a design question and produces at least 3 genuinely different options. A model from another family red-teams them. The chosen option is written up as an ADR, which gets red-teamed again before it's frozen. No code. |
 | `/planner` | Owner | Owns the outcome of the task. Reads the current state and weighs uncertainty, risk, and whether delegating pays off. Then either does the work itself or writes a short brief and dispatches it. Finally it verifies the result and decides whether the task is done. |
-| `/finishing` | Wrap-up | Writes a short handoff (results, open items, an opening prompt for the next session) and uses a local script to extract a denoised transcript of the session. |
-| `/cleaning` | Cleanup | Best run at the start of the next session on a cheap model. Compacts and archives the transcript, updates architecture/TODO, checks ADR links, and prunes old scratch directories. |
+| `/finishing` | Wrap-up | Writes a short handoff (results, open items, an opening prompt for the next session) ending with the `/cleaning <session-UUID>` command for the next round. |
+| `/cleaning` | Cleanup | Best run at the start of the next session on a cheap model. Extracts the previous session and writes a compacted archive, then sweeps everything inside the project's writable scope: docs vs. code, dead files and duplication, architecture/TODO, ADR links, old scratch. Mechanical fixes are applied directly; deleting or rewriting tracked files goes through a candidate list you confirm. |
 
 Two more roles are dispatched by scripts. You don't talk to them directly:
 
@@ -42,7 +42,7 @@ Two more roles are dispatched by scripts. You don't talk to them directly:
 | `.workflow/decisions/NNNN-slug.md` | ADRs: stable, long-lived decisions. Never edited in place; a new ADR supersedes an old one. | Yes, in track mode |
 | `.workflow/architecture.md` | Map of the current design. When it conflicts with an ADR, the ADR wins. | Yes, in track mode |
 | `.workflow/TODO.md` | Flat "next steps" list. Items are deleted when done. | Yes, in track mode |
-| `.workflow/scratchpad/` | Work orders, run logs, review sheets, transcripts | No |
+| `.workflow/scratchpad/` | Work orders, run logs, review sheets | No |
 | `.workflow/scratchpad/_archive/` | Compacted past conversations, kept long-term on this machine and skipped by routine cleanup | No |
 
 ---
@@ -53,7 +53,7 @@ Two more roles are dispatched by scripts. You don't talk to them directly:
 |---|---|
 | bash, git, coreutils (`timeout`, `sha256sum`) | All scripts |
 | `jq` | Token-usage parsing in `run_worker.sh` |
-| Python 3 (standard library only) | Doc checks, transcript extraction, and archiving. Called via `uv run python` by default; set `WF_PY="python3"` if you don't use uv. |
+| Python 3 (standard library only) | Doc checks and conversation extraction. Called via `uv run python` by default; set `WF_PY="python3"` if you don't use uv. |
 | At least one main agent: Claude Code / Codex / Cursor | Running the `/bs`, `/planner`, … skills |
 | At least one dispatch CLI: `cursor-agent` and/or `codex`, logged in | Calling the worker and reviewer |
 
@@ -119,13 +119,13 @@ Open your main agent in the project:
 ```text
 /bs What caching approach should we use?     # design question: explore, produce ADR-0001
 /planner Implement the cache per ADR-0001    # delivery: planner does it or dispatches
-/finishing                                   # wrap-up: handoff + extract transcript
+/finishing                                   # wrap-up: handoff ending with the /cleaning command
 ```
 
 At the start of the next session (ideally on a cheaper model):
 
 ```text
-/cleaning .workflow/scratchpad/PL-<session-UUID>/transcript.md
+/cleaning <previous-session-UUID>
 ```
 
 Then paste the "opening prompt for the next session" from the last handoff and carry on.
@@ -140,8 +140,8 @@ planner    read goal and current state → triage → do it yourself OR write a 
            → read results, verify the key call paths → rule → rework if needed
 worker     implement within the brief's goal and boundaries; report results, deviations, contradictions
 reviewer   read-only review of the actual changes; structured findings
-finishing  handoff → extract this session's transcript
-cleaning   (next session) compact and archive → update architecture/TODO → check links → prune scratch
+finishing  handoff (with the /cleaning command)
+cleaning   (next session) extract, compact, archive → repo-wide sweep → fix mechanical items, list judgment calls → prune scratch
 ```
 
 Not every task needs the full cycle. The planner makes small local fixes itself. `/bs` is only for design questions. Reviews, and especially second reviews, are added only when the risk justifies them.
@@ -207,21 +207,19 @@ STATUS is information only and never blocks a commit. The planner makes the fina
 ### Wrap-up and archiving
 
 ```bash
-# Run by /finishing: extract the conversation from local CC / Codex / Cursor logs
+# Run by /cleaning: extract the previous session from local CC / Codex / Cursor logs
 # (user and assistant text only; common credentials are masked)
-$WF_PY .workflow/kit/scripts/transcribe_session.py --backend cc \
-  --session <full-UUID> --out .workflow/scratchpad/PL-<UUID>/transcript.md
+$WF_PY .workflow/kit/scripts/transcribe_session.py \
+  --session <full-UUID> --out .workflow/scratchpad/<UUID>.transcript.md
 #   Not found, or several matches: use --input <jsonl path> instead of --session.
 #   --tools keeps a skeleton of the tool calls.
 
-# Run by /cleaning: the model writes transcript.compact.md, then it's archived with a source hash
-$WF_PY .workflow/kit/scripts/archive_transcript.py \
-  --source <transcript.md> --compact <transcript.compact.md> --slug add-cache-ttl
-#   → .workflow/scratchpad/_archive/NN-YYYYMMDD-add-cache-ttl.transcript.compact.md
-
-# Before deleting the source directory, verify the archive is intact and matches its source
-$WF_PY .workflow/kit/scripts/archive_transcript.py --source <transcript.md> --verify <archive-file>
+# The model writes the compacted dialogue straight to
+# .workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.transcript.compact.md
+# (first line records backend, session UUID and raw log path), then deletes the extraction.
 ```
+
+Extraction happens in the next session, when the previous session's log is fully flushed, handoff included. Hosts prune old logs periodically, so run cleaning when you next start work.
 
 Archives are kept long-term on your machine, but git ignores them. **They are not a backup.**
 
@@ -250,7 +248,7 @@ your-project/
 │   ├── kit/                     # installed copy of the mechanism (overwritten on every install)
 │   │   ├── discipline.md
 │   │   ├── skills/{bs,planner,finishing,cleaning}/
-│   │   ├── scripts/             # run_worker / call_agent / check_docs / transcribe / archive …
+│   │   ├── scripts/             # run_worker / call_agent / check_docs / transcribe …
 │   │   ├── git-hooks/pre-commit
 │   │   ├── settings.json
 │   │   └── workflow.env.example
@@ -308,7 +306,7 @@ ai-workflow/
 │   ├── discipline.md
 │   ├── skills/       # bs / planner / finishing / cleaning (brief template, worker/review preambles, red-team prompts)
 │   ├── scripts/      # run_worker.sh  call_agent.sh  derive_status.sh  lib_timeout.sh
-│   │                 # check_docs.py  transcribe_session.py  archive_transcript.py
+│   │                 # check_docs.py  transcribe_session.py
 │   │   └── tests/    # run-all.sh and the test suites
 │   ├── git-hooks/pre-commit
 │   ├── settings.json
@@ -328,7 +326,7 @@ What each script does:
 - `call_agent.sh`: the single way to call `cursor-agent` / `codex`. It streams to the log, applies per-role timeouts, and kills the whole process tree on timeout. Exit codes: 0 OK, 124 timeout, 3 agent error, 4 truncated stream.
 - `derive_status.sh`: derives STATUS purely from the machine-check results and the review sheets.
 - `check_docs.py`: checks ADR structure and broken links, over the whole repo, `--changed` files, or `--staged` files.
-- `transcribe_session.py` / `archive_transcript.py`: extract conversations from all three backends, and archive them with source hashes plus a verify step.
+- `transcribe_session.py`: extracts conversations from all three backends, recording the source in a header.
 
 ### Changing the mechanism
 

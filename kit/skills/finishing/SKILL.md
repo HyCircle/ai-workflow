@@ -1,27 +1,26 @@
 ---
 name: finishing
-description: 收束 CC、Codex 或 Cursor session，先给简短交棒，再用本地脚本提取 transcript，交下一轮 cleaning 压缩归档。用户 /finishing 调用。
+description: 收束 CC、Codex 或 Cursor session：给出简短交棒和下一轮 cleaning 命令。对话提取、压缩归档和仓库维护都在下一轮 cleaning 做。用户 /finishing 调用。
 ---
 
 # Finishing
 
-先读 discipline 和 AGENTS，命令取自 workflow.env。全程中文，顺序为交棒 → 提取 → 核对。
+先读 discipline 和 AGENTS，全程中文。本技能只产出一段交棒回复；对话由下一轮 cleaning 从本机原始日志提取，那时本轮日志已完整落盘、包含这段交棒。
 
 ## 交棒
 
-用一段简短回复说明本轮结果、验证范围、未完成项、稳定但未冻的决定候选，以及可复制的「下 session 开场提示词」。保留关键约束与下一步所需的精确路径。决定由 bs/planner 著作；文档维护交下一轮低成本模型执行 cleaning。
+用一段简短回复说明：
 
-## 提取
+- 本轮结果与验证范围（区分实现完成、检查通过、真实结果已验证）；
+- 未完成项及其定位指针；
+- 稳定但未冻的决定候选（由 bs/planner 就地冻结）；
+- 关键约束与下一步所需的精确路径；
+- 可复制的「下 session 开场提示词」。
 
-复用本 session 的 `.workflow/scratchpad/<PL|BS>-<完整UUID>/`。从宿主标识或已确认的日志取得 UUID；来源不明时列候选，核对项目和开场任务。
+末尾单独一行给出收尾命令，带本 session 的完整 UUID（取自宿主标识或本轮 `PL-`/`BS-` 目录名）：
 
-```bash
-$WF_PY .workflow/kit/scripts/transcribe_session.py --backend <cc|codex|cursor> \
-  --session <完整UUID> --out .workflow/scratchpad/<PL|BS>-<完整UUID>/transcript.md
+```
+/cleaning <完整UUID>
 ```
 
-脚本按完整 UUID 精确查找本机 CC projects、Codex sessions/archived_sessions、Cursor agent-transcripts 的 JSONL 日志。非默认位置或多个匹配时，以 `--input <完整日志路径>` 替代 `--session`。
-
-默认保留用户/助手正文，省略推理、工具流水账和宿主注入，附来源标识并做常见凭证打码。工具结果与图像内容需回原始材料核实。`--tools` 可保留工具骨架供排查；坏行报错并保留已有输出。
-
-核对文件尾部包含刚才的交棒。日志未刷盘时重新提取；无法取得完整记录则报告缺口、保留源文件。最后回报 transcript 路径，交下一轮 `/cleaning <该路径>`。
+文档维护、scratch 清理交给下一轮低成本模型执行 cleaning。

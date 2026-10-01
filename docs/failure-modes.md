@@ -40,8 +40,8 @@
 ## FM-4 · 独立台账文件(dispositions.md / handoff.md)是多余机制
 
 - **症状**:为「裁决记录」「交棒」各建一个 md 台账,和 git/transcript 双重记账、易漂移。
-- **规则**:**裁决/驳回/跳过亲验的理由随 commit message 落库**;**交棒 = finishing 的 transcript 本身**
-  (助手回复进会话 → 转写成 scratch transcript,尾部固定「下 session 开场提示词」段)。不建独立台账。
+- **规则**:**裁决/驳回/跳过亲验的理由随 commit message 落库**;**交棒 = 会话本身**
+  (finishing 的助手回复进会话日志,尾部固定「下 session 开场提示词」段;下一轮 cleaning 提取并归档)。不建独立台账。
 - **在哪强制**:`docs/design.md` 的文档职责与复审说明、`planner/SKILL.md`、`finishing/SKILL.md`。
 
 ## FM-5 · worker 自述与机器检查混为一谈

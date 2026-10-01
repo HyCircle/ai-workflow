@@ -23,8 +23,8 @@
 |---|---|---|
 | `/bs` | 脑暴 | 对一个设计问题提出 3 个以上真正不同的方案，交另一家模型红队，收敛后写成 ADR，冻结前再红队一次。不写代码。 |
 | `/planner` | 负责人 | 对任务结果负责：读现状，判断不确定性、风险和委派是否划算，然后自己做或写短 brief 派出去，最后核实结果、裁决是否完成。 |
-| `/finishing` | 收尾 | 给出简短交棒（结果、未完成项、下次开场提示词），并用本地脚本把本次会话提取成去噪 transcript。 |
-| `/cleaning` | 清理 | 建议下一次会话用便宜模型执行：把 transcript 压缩归档，同步 architecture / TODO，检查 ADR 死链，清理旧 scratch。 |
+| `/finishing` | 收尾 | 给出简短交棒（结果、未完成项、下次开场提示词）和下一轮 `/cleaning <会话UUID>` 命令。 |
+| `/cleaning` | 清理 | 建议下一次会话用便宜模型执行：提取上次会话并压缩写入归档，然后在项目可写范围内全仓巡检——文档与代码对齐、死文件与重复、architecture / TODO、ADR 死链、旧 scratch；机械项直接改，删改受版本管理的文件先出候选清单给你确认。 |
 
 另外还有两类被派出去的角色，由脚本调用，你不直接和它们对话：
 
@@ -40,7 +40,7 @@
 | `.workflow/decisions/NNNN-slug.md` | ADR：稳定的长期决策，不可原地改，只能用新 ADR 取代 | track 模式下进 |
 | `.workflow/architecture.md` | 当前设计现状的地图；和 ADR 冲突时以 ADR 为准 | track 模式下进 |
 | `.workflow/TODO.md` | 扁平的"下一步"清单，做完即删 | track 模式下进 |
-| `.workflow/scratchpad/` | 工单、run 日志、验收单、transcript 等临时产物 | 否 |
+| `.workflow/scratchpad/` | 工单、run 日志、验收单等临时产物 | 否 |
 | `.workflow/scratchpad/_archive/` | 压缩后的历史对话，本机长期保留，普通清理不删 | 否 |
 
 ---
@@ -51,7 +51,7 @@
 |---|---|
 | bash、git、coreutils（`timeout`、`sha256sum`） | 所有脚本 |
 | `jq` | `run_worker.sh` 解析 token 用量 |
-| Python 3（只用标准库） | 文档检查、transcript 提取与归档。默认通过 `uv run python` 调用，没有 uv 就把 `WF_PY` 改成 `python3` |
+| Python 3（只用标准库） | 文档检查、会话提取。默认通过 `uv run python` 调用，没有 uv 就把 `WF_PY` 改成 `python3` |
 | 至少一个主 agent：Claude Code / Codex / Cursor | 运行 `/bs` `/planner` 等 skill |
 | 至少一个派单 CLI：`cursor-agent` 和/或 `codex` | worker 和 reviewer 外呼；需已登录 |
 
@@ -116,13 +116,13 @@ WF_REVIEW_MODEL_STRONG="codex/gpt-5.6-terra"     # 更强的审查 / 第二审
 ```text
 /bs 我们的缓存层该用什么方案？          # 有设计问题：先发散，产出 ADR-0001
 /planner 按 ADR-0001 实现缓存层          # 落地：planner 自己做或派单
-/finishing                               # 收尾：交棒 + 提取 transcript
+/finishing                               # 收尾：交棒，末尾给出 /cleaning 命令
 ```
 
 下次会话开头（建议切到便宜模型）：
 
 ```text
-/cleaning .workflow/scratchpad/PL-<会话UUID>/transcript.md
+/cleaning <上次会话UUID>
 ```
 
 然后把上次交棒里的「下 session 开场提示词」贴进去，继续干活。
@@ -137,8 +137,8 @@ planner    读目标和现状 → 分诊 → 自己做 或 写 brief 派单
            → 读结果、核实关键调用链 → 裁决 → 按需返工
 worker     在 brief 目标和边界内实现，回报结果、偏离和矛盾
 reviewer   只读审查实际改动，输出结构化 findings
-finishing  交棒 → 提取本次会话的 transcript
-cleaning   （下次会话）压缩归档 → 同步 architecture/TODO → 查死链 → 清旧 scratch
+finishing  交棒（含 /cleaning 命令）
+cleaning   （下次会话）提取并压缩归档 → 全仓巡检 → 直接修机械项、判断项出清单 → 清旧 scratch
 ```
 
 不是每项任务都要走完整流程。简单的局部修改，planner 直接自己改就行；遇到设计问题才需要 `/bs`；审查和第二审只在风险值得时才加。
@@ -203,19 +203,16 @@ STATUS 只是信息，不会拦住 commit。最终是否放行由 planner 判断
 ### 会话收尾与归档
 
 ```bash
-# /finishing 内部执行：从本机 CC / Codex / Cursor 日志提取对话（只保留用户和助手的正文，常见凭证打码）
-$WF_PY .workflow/kit/scripts/transcribe_session.py --backend cc \
-  --session <完整UUID> --out .workflow/scratchpad/PL-<UUID>/transcript.md
+# /cleaning 内部执行：从本机 CC / Codex / Cursor 日志提取上次会话（只保留用户和助手的正文，常见凭证打码）
+$WF_PY .workflow/kit/scripts/transcribe_session.py \
+  --session <完整UUID> --out .workflow/scratchpad/<UUID>.transcript.md
 #   找不到或有多个匹配时：用 --input <jsonl 路径> 代替 --session；--tools 保留工具调用骨架
 
-# /cleaning 内部执行：模型先写 transcript.compact.md，再归档（带来源哈希）
-$WF_PY .workflow/kit/scripts/archive_transcript.py \
-  --source <transcript.md> --compact <transcript.compact.md> --slug add-cache-ttl
-#   → .workflow/scratchpad/_archive/NN-YYYYMMDD-add-cache-ttl.transcript.compact.md
-
-# 删源目录前先校验归档完整、来源一致
-$WF_PY .workflow/kit/scripts/archive_transcript.py --source <transcript.md> --verify <归档文件>
+# 模型压缩后直接写入 .workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.transcript.compact.md
+# 首行记录来源（后端、会话 UUID、原始日志路径），随后删除提取稿
 ```
+
+提取放在下一次会话做：那时上次会话的日志已完整落盘，包含交棒。宿主会定期清理旧日志，cleaning 宜在下次开工时就跑。
 
 归档在本机长期保留，但被 git 忽略，**不等于备份**。
 
@@ -244,7 +241,7 @@ your-project/
 │   ├── kit/                     # 机制副本（每次 install 整体覆盖）
 │   │   ├── discipline.md
 │   │   ├── skills/{bs,planner,finishing,cleaning}/
-│   │   ├── scripts/             # run_worker / call_agent / check_docs / transcribe / archive …
+│   │   ├── scripts/             # run_worker / call_agent / check_docs / transcribe …
 │   │   ├── git-hooks/pre-commit
 │   │   ├── settings.json
 │   │   └── workflow.env.example
@@ -302,7 +299,7 @@ ai-workflow/
 │   ├── discipline.md
 │   ├── skills/       # bs / planner / finishing / cleaning（含 brief 模板、worker/审查 preamble、红队提示词）
 │   ├── scripts/      # run_worker.sh  call_agent.sh  derive_status.sh  lib_timeout.sh
-│   │                 # check_docs.py  transcribe_session.py  archive_transcript.py
+│   │                 # check_docs.py  transcribe_session.py
 │   │   └── tests/    # run-all.sh 及各测试
 │   ├── git-hooks/pre-commit
 │   ├── settings.json
@@ -322,7 +319,7 @@ ai-workflow/
 - `call_agent.sh`：统一外呼 `cursor-agent` / `codex`，流式写日志，按角色超时并回收整棵进程树。退出码：0 正常，124 超时，3 agent 报错，4 流截断。
 - `derive_status.sh`：用机器检查结果和审查单纯派生 STATUS。
 - `check_docs.py`：检查 ADR 结构与断链，支持全仓、`--changed`、`--staged` 三种范围。
-- `transcribe_session.py` / `archive_transcript.py`：提取三种后端的对话；归档时附带来源哈希，并提供校验。
+- `transcribe_session.py`：提取三种后端的对话，头部记录来源。
 
 ### 修改机制
 

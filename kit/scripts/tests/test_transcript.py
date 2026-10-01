@@ -1,4 +1,4 @@
-"""Behavioral fixtures for the three observed log formats and archive boundary."""
+"""Behavioral fixtures for the three observed log formats."""
 import contextlib
 import io
 import json
@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import transcribe_session as extract
-from archive_transcript import archive, verify_archive
 
 SESSION = "b8e6e706-f4dd-4fd0-9e79-964be0aa5300"
 
@@ -89,55 +88,16 @@ class TranscriptTests(unittest.TestCase):
                 self.assertEqual(extract.main(["--input", str(source), "--out", str(output)]), 1)
                 self.assertEqual(output.read_text(), "existing good transcript")
 
-    def test_extract_archive_end_to_end(self):
+    def test_cli_header_carries_provenance_for_archive(self):
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
-            root = Path(tmp)
-            source = root / f"{SESSION}.jsonl"
+            source, output = Path(tmp) / f"{SESSION}.jsonl", Path(tmp) / "out.md"
             source.write_text(json.dumps(cc("user", "不能提交")) + "\n" + json.dumps(cc("assistant", "交棒：测试未跑")))
-            transcript = root / f"PL-{SESSION}" / "transcript.md"
-            self.assertEqual(extract.main(["--input", str(source), "--out", str(transcript)]), 0)
-            directory = root / "_archive"
-            compact = root / "compact.md"
-            compact.write_text("## User\n\n不能提交\n\n## Assistant\n\n交棒：测试未跑\n")
-            result = archive(transcript, compact, directory, "test-session")
-            self.assertIn(SESSION, result.read_text())
-            self.assertEqual(archive(transcript, compact, directory, "test-session"), result)
-            self.assertTrue(transcript.exists())
-            verify_archive(transcript, result)
-            result.write_text(result.read_text().replace("测试未跑", "测试全绿"))
-            with self.assertRaises(ValueError):
-                archive(transcript, compact, directory, "test-session")
-            with self.assertRaises(ValueError):
-                verify_archive(transcript, result)
-
-    def test_archive_semantic_and_legacy_numbering(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            source, compact = root / "transcript.md", root / "compact.md"
-            source.write_text("## User\n\n原始任务\n\n## Assistant\n\n尚未完成\n")
-            compact.write_text("## User\n\n原始任务\n\n## Assistant\n\n未完成\n")
-            directory = root / "_archive"
-            directory.mkdir()
-            (directory / "19-20260921-old.transcript.compact.md").write_text("legacy")
-            result = archive(source, compact, directory, "test-semantic")
-            self.assertTrue(result.name.startswith("20-"))
-            self.assertIn("未完成", result.read_text())
-            compact.write_text("not a dialogue")
-            with self.assertRaises(ValueError):
-                archive(source, compact, directory, "bad")
-
-    def test_source_changed_blocks_archival_gc(self):
-        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
-            root = Path(tmp)
-            source, transcript = root / "source.jsonl", root / "transcript.md"
-            source.write_text(json.dumps(cc("user", "用户约束")) + "\n")
-            self.assertEqual(extract.main(["--input", str(source), "--out", str(transcript)]), 0)
-            compact = root / "compact.md"
-            compact.write_text("## User\n\n用户约束\n")
-            result = archive(transcript, compact, root / "_archive", "source-check")
-            transcript.write_text(transcript.read_text() + "\n## User\n\n新增约束\n")
-            with self.assertRaises(ValueError):
-                verify_archive(transcript, result)
+            self.assertEqual(extract.main(["--input", str(source), "--out", str(output)]), 0)
+            first = output.read_text().splitlines()[0]
+            metadata = json.loads(first[len("<!-- workflow-transcript "):-len(" -->")])
+            self.assertEqual((metadata["backend"], metadata["session"], metadata["source"]),
+                             ("cc", SESSION, str(source.resolve())))
+            self.assertTrue(output.read_text().rstrip().endswith("交棒：测试未跑"))
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ description: 负责将用户任务或已接受的设计落地，选择自做或�
 
 ## 派单输入
 
-本 session 的产物放 `.workflow/scratchpad/PL-<id>/`，`<id>` 用完整 session UUID，与 `/finishing` 转写一致。派单文件用 `WO-current.md`；多项并行工作各用独立文件。
+本 session 的产物放 `.workflow/scratchpad/PL-<id>/`，`<id>` 用完整 session UUID，与 `/finishing` 交给 `/cleaning` 的 UUID 一致。派单文件用 `WO-current.md`；多项并行工作各用独立文件。
 
 默认写一份短 brief，参考 [WO-TEMPLATE.md](WO-TEMPLATE.md)：目标、依据与硬边界、待验证假设、交付与证据；仅在有帮助时附做法建议。必要规格指向代码或已有文档。复派时重写当前有效要求，旧输入由脚本保存在各 run 的 `brief.md` 中。
 

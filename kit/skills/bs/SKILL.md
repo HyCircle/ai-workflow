@@ -19,7 +19,7 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 - 决策倾向挂**数据需求**:哪些选择必须先做实验才能定(本项目铁律:决策要数据支撑)。
 
 ## 产出
-开工先 `mkdir -p .workflow/scratchpad/BS-<id>`(`<id>` = 你 scratchpad 路径里那段**完整 session UUID**,与 `/finishing` 转写的 `--session` 用同一个;按 session 分目录,各 session 各一份)。
+开工先 `mkdir -p .workflow/scratchpad/BS-<id>`(`<id>` = 你 scratchpad 路径里那段**完整 session UUID**,与 `/finishing` 交给 `/cleaning` 的 UUID 用同一个;按 session 分目录,各 session 各一份)。
 → `.workflow/scratchpad/BS-<id>/options.md`:问题陈述 / 3+ 方案(各 steelman + 失效模式)/ 待验证实验 / 你的倾向与理由。**先别收敛成单一答案**——等红队回合。
 本 session 的红队产物也固定落这个目录,供用户本 session 审阅(吸收完随 session GC,不进 ADR):选项册红队 → `redteam-options.md`,ADR 红队 → `redteam-adr-NNNN.md`(见下收敛流水线)。
 
