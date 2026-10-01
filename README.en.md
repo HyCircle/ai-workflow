@@ -14,11 +14,12 @@ This repository is the **single source** of the workflow. It installs as a comma
 - **No model grades its own work.** Reviews go by default to a different model family from the one that did the work: for example, Cursor Composer writes and Grok reviews, with an optional second review from GPT.
 - **Context on demand.** The root instructions in `AGENTS.md` are a router that says what to read when; agents don't preload the whole doc set.
 - **Design stays coherent.** ADRs are one per topic and edited in place. When the project grows complex, `/holistic` reviews the whole design and merges or removes what's redundant.
+- **Claims hold up under challenge.** Experimental claims go through `/challenge`; reviewing the diff doesn't replace it.
 - **Lessons have a home.** Pitfalls and practices learned in a session go into task-type playbooks that are read the next time you do the same kind of task.
 
 ## Core concepts
 
-### Five roles (skills you run as slash commands in the main agent)
+### Six roles (skills you run as slash commands in the main agent)
 
 | Command | Role | What it does |
 |---|---|---|
@@ -27,6 +28,7 @@ This repository is the **single source** of the workflow. It installs as a comma
 | `/finishing` | Wrap-up | The agent that did the work writes a session archive (the user's own words, decisions and reasons, verified vs. unverified conclusions, open items), updates TODO, lists playbook candidates, and replies with a handoff and an opening prompt for the next session. |
 | `/cleaning` | Cleanup | Run on demand (every few sessions, or when docs look stale), on a cheap model. Merges playbook candidates from recent archives into `patterns/`, then sweeps everything inside the project's writable scope: docs vs. code, dead files and duplication, architecture/TODO, ADR references, old scratch. Mechanical fixes are applied directly; deleting or rewriting tracked files goes through a candidate list you confirm. |
 | `/holistic` | Overall review | Run on a strong model when the project grows complex or a major phase ends. Reads architecture, every ADR, and the key code; finds cross-ADR conflicts, overlap, seam bugs, and needless complexity; proposes an overall plan to merge, delete, and simplify, then executes what you confirm. |
+| `/challenge` | Claim challenge | For experiments, benchmarks, performance or numerical results, and claims like "X beats Y" or "verified done": a strong model looks only for counter-evidence and reproduces it itself, for at most two rounds; you settle each objection, and the report separates supported from unverified claims. Not for ordinary coding tasks. |
 
 Two more roles are called by `wf`. You don't talk to them directly:
 
@@ -124,6 +126,7 @@ reviewer   read-only review of the actual changes; list of problems
 finishing  write archive → update TODO → list playbook candidates → hand off
 cleaning   (on demand) merge playbooks → repo-wide sweep → fix mechanical items, list judgment calls → prune scratch
 holistic   (on demand) read the whole design → find cross-ADR problems → overall plan → execute after user confirms
+challenge  (experimental claims) claim list → strong model seeks counter-evidence → settle each → separate supported from unverified
 ```
 
 Not every task needs the full cycle. The planner makes small local fixes itself. `/bs` is only for design questions. Reviews, and especially second reviews, are added only when the risk justifies them.
@@ -149,7 +152,7 @@ wf run <brief>                      # the worker implements; results go back to 
 wf run <brief> --review             # implement + tests + independent review
 wf review <brief> [--model strong]  # tests + independent review of the current tree; rerun with another model for a second review
 wf ask <model> <prompt-files...> [--out FILE] [--write]
-                                    # the call primitive, read-only by default: red teams and plan reviews use it
+                                    # the call primitive, read-only by default: red teams, plan reviews, and claim challenges use it
 wf init [--no-track] [--backends cc,codex,cursor]
 ```
 
@@ -189,7 +192,7 @@ your-project/
 ├── .workflow/
 │   ├── kit/                     # copy of the kit (overwritten on every wf init)
 │   │   ├── discipline.md
-│   │   ├── skills/{bs,planner,finishing,cleaning,holistic}/
+│   │   ├── skills/{bs,planner,finishing,cleaning,holistic,challenge}/
 │   │   └── workflow.env.example
 │   ├── decisions/0000-template.md   # ADR template
 │   ├── architecture.md  TODO.md     # you create these
@@ -237,7 +240,7 @@ ai-workflow/
 │   ├── install.py    # init
 │   ├── kit/          # the workflow itself; wf init copies it into the project's .workflow/kit/
 │   │   ├── discipline.md
-│   │   ├── skills/   # bs / planner / finishing / cleaning / holistic (with brief template, worker/review preambles, red-team prompts)
+│   │   ├── skills/   # bs / planner / finishing / cleaning / holistic / challenge (with brief template, worker/review/challenger preambles, red-team prompts)
 │   │   └── workflow.env.example
 │   └── seed/         # placed in the project on first install: AGENTS.md, decisions/0000-template.md
 ├── tests/            # end-to-end tests with fake CLIs in place of models

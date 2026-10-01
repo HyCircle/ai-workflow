@@ -38,5 +38,4 @@
 - 版本号在 `pyproject.toml`,`wf --version` 显示。改了会影响消费项目的行为时递增版本并打 tag;changelog = git 历史。
 
 ## roadmap
-- 下一步:`/challenge` 结论质疑技能,基于 `wf ask`。
 - 不接各家 SDK、不做 MCP 服务、不支持原生 Windows;保持「一个标准库命令行工具 + Markdown」(纪律③)。
