@@ -1,12 +1,12 @@
 # 工作流 + 文档系统设计蓝图
 
-> 本文是给人和维护者看的设计权威，说明当前取舍与边界。可运行的 SOT 是本仓 `kit/` 与 `README.md`；消费仓的物理路径位于 `.workflow/`，agent 通过 `AGENTS.md`、skills 和 `discipline.md` 工作。
+> 本文是给人和维护者看的设计权威，说明当前取舍与边界。可运行的 SOT 是本仓 `wf/` 与 `README.md`；消费仓的物理路径位于 `.workflow/`，agent 通过 `AGENTS.md`、skills 和 `discipline.md` 工作。
 
 ## 0. 核心取舍
 
 工作流让一个 planner 对结果负责：理解目标与现状，找出最关键的不确定性，选择能最快获得有效反馈的下一步，整合证据，并判断结果是否足以支持用户目标。planner 可以自己实现，也可以委派；任务成本包括外呼、交接、返工、用户负担和质量，不只包括 planner 的上下文。
 
-角色分工包括：bs 负责长期设计，planner 负责当前任务的编排和裁决，worker 执行，verifier 按需验收，finishing 由本轮亲历者写归档并交棒，cleaning 用低成本模型按需合入手册并在项目可写范围内全仓巡检维护，holistic 用强模型按需整体审查设计的自洽与复杂度。多 agent 是执行选项，是否委派由边界、反馈价值和交接成本决定。
+角色分工包括：bs 负责长期设计，planner 负责当前任务的编排和裁决，worker 执行，reviewer 按需审查，finishing 由本轮亲历者写归档并交棒，cleaning 用低成本模型按需合入手册并在项目可写范围内全仓巡检维护，holistic 用强模型按需整体审查设计的自洽与复杂度。多 agent 是执行选项，是否委派由边界、反馈价值和交接成本决定。
 
 ## 1. 文档系统：各类信息各有其家
 
@@ -34,7 +34,7 @@ bs         发散真实方案、红队比较，冻结成熟的长期决策
 planner    读目标和实况 → 三轴分诊 → 自做或短 brief 委派
            → 取得真实反馈 → 看整体与关键调用链 → 裁决并按需审查
 worker     在目标和硬边界内实现，回报结果、偏离和矛盾
-verifier   按风险或明确要求审查实际行为与证据
+reviewer   按风险或明确要求审查实际行为与证据
 finishing  亲历者写归档 → 更新 TODO → 列手册候选 → 交棒
 cleaning   （按需）合入手册 → 可写范围内全仓巡检 → 机械项直接修、判断项出候选清单 → 清理旧 scratch
 holistic   （按需）通读 architecture、全部 ADR 与关键代码 → 整体方案 → 用户确认后执行
@@ -60,17 +60,17 @@ holistic   （按需）通读 architecture、全部 ADR 与关键代码 → 整�
 
 worker 在授权范围内选择实现。发现关键假设不成立、目标或范围必须改变，或建议会引入显著新机制时，立即在短报告中写出具体矛盾、证据和可行选择。正常的局部实现选择无需逐项请示。
 
-每轮 run 保存一份 `brief.md` 快照；worker 和所有 verifier 使用同一份快照。执行后的回显包含 worker 的完整短报告；报告中的偏离与矛盾是 worker 的自述，供 planner 判断，脚本不自动解析或替它背书。
+每轮 run 保存一份 `brief.md` 快照；worker 和 reviewer 使用同一份快照。汇总包含 worker 的完整短报告；报告中的偏离与矛盾是 worker 的自述，供 planner 判断，`wf` 不解析或替它背书。
 
 ### 2.3 审查与 planner 亲验
 
-WO 审是可选能力：只有未经验证的方案一旦错误会造成明显返工，或用户明确要求时才安排；审查应回答指定疑点、读取相关实况并比较必要的替代方案。双审按第二双眼带来的增益选择，风险不足或没有独立价值时不启用。
+方案审是可选能力，用 `wf ask` 发起：只有未经验证的方案一旦错误会造成明显返工，或用户明确要求时才安排；审查应回答指定疑点、读取相关实况并比较必要的替代方案。第二审按第二双眼带来的增益选择，用另一个模型再跑一次 `wf review`。
 
-施工审围绕目标、实际入口、关键调用链、证据有效性和不必要机制组织。工单是上下文，不是逐条合规清单。finding 要给出触发条件、错误结果和依据，已确认缺陷与待验证疑点分开；纯建议不自动阻断。
+施工审围绕目标、实际入口、关键调用链、证据有效性和不必要机制组织。工单是上下文，不是逐条合规清单。问题要给出触发条件、错误结果和依据，已确认缺陷与待验证疑点分开；建议不当作阻断。
 
-`SKIP_REVIEW=1` 复用探索执行后返回负责人的路径：脚本仍做越界等边界检查，但不运行 pytest 和 `check_docs`，回显明确列出未执行项；这不等于验收通过。需要独立审查时再用 `REVIEW_ONLY=1`。`review_complete` 只表示本轮审查状态，不表示业务目标已完成。
+`wf run` 不带 `--review` 时只施工并做越界检查，测试与审查不运行，汇总明确写出；需要时再对当前工作树跑 `wf review`。
 
-planner 对整体和关键调用链自主核实，不能只转述报告。测试全绿只证明执行过的断言成立；无 blocking 只证明本轮没有报告阻断问题。放行判断还要结合目标、设计取舍、真实结果和证据限度。
+planner 对整体和关键调用链自主核实，不能只转述报告。测试全绿只证明执行过的断言成立；审查无阻断问题只证明本轮没有报告阻断问题。放行判断还要结合目标、设计取舍、真实结果和证据限度。
 
 ### 2.4 复审和状态
 
@@ -78,18 +78,18 @@ planner 对整体和关键调用链自主核实，不能只转述报告。测试
 
 复审重写当前有效的 brief，撤回过时要求；旧 brief 和审查原文仍在 run 记录中，但不要求执行者同时满足多代判据。轮数只作提醒，不能机械决定停工或继续。长期 ADR 纪律保持不变，具体实现做法可以随着证据改变。
 
-脚本将机器事实和结构化 findings 纯派生为 `review_complete`、`review_blocked`、`review_skipped` 或 `infra_failed`。finding 使用结构化字段 `severity`、`where`、`claim`、`failure_scenario`，无 finding 用明确的 `<<<FINDINGS-NONE>>>` 标记；坏报告不能替代机器事实。脚本亲产 pytest、文档和越界等检查，并保留跳过项解释；入口参数或目标错误直接以非零退出，`infra_failed` 表示执行或验收基础设施失败。状态是信息态，最终裁决仍由 planner 负责；双审只有在明确需要时启用，启用后 blocking 取并集；任一审查员没有有效产出时该轮为 `infra_failed`，可冻结工作树用 `REVIEW_ONLY=1` 重派。
+`wf` 不派生放行状态：汇总列出各外呼退出码、越界检查、测试结果、worker 报告和审查单，由 planner 裁决。外呼失败时命令以退出码 2 结束；只是审查失败时重跑 `wf review`，不重跑 worker。
 
 ## 3. 实现契约与布局
 
-`run_worker.sh` 负责派单、外呼、brief 快照、报告回传、著作文件越界检查和状态派生；`SKIP_REVIEW`、`REVIEW_ONLY`、`WO_REVIEW` 是显式能力。revision 在 worker 完成后对验收对象树取 hash，并包含 untracked 文件。脚本不把模型自报结果当作机器事实。`call_agent.sh` 负责原生流式输出、角色超时和整树回收；`check_docs.py` 负责 ADR 结构、断链及 staged/changed 检查；git hook 运行 staged 文档检查。
+`wf` 是纯标准库的 Python 命令行工具，通过 `uv tool install` 安装，支持 Linux、macOS 和 WSL。四个子命令：`init` 投影与升级，`ask` 外呼原语，`run` 派 worker 施工（可选测试与审查），`review` 对当前工作树测试与审查。外呼走各家 CLI（`cursor-agent`、`codex`、`claude`）的非交互 JSON 输出：原始流直写日志，最终回复从流尾的结果事件或 codex 的末条消息文件提取；超时连整个进程组一起结束。只读靠各 CLI 自带的只读模式或提示词，不启用沙箱。不接各家 SDK：命令行能复用订阅登录与额度，安装也只需一个工具。
+
+越界检查在 worker 前后对比负责人著作文件（decisions、architecture、patterns、AGENTS.md）的内容，派单前已有的改动不计入。每次 run 的目录保存 brief 快照、实际提示词、原始日志、报告、审查单、测试输出和汇总，不建立跨轮状态数据库。`.done` 只表示产物已定、可以清理，不表示放行；执行中的共享工作树不允许并行改写。著作类文件由负责人维护，worker 的写入面限于代码与 scratchpad。README、AGENTS、architecture 是注入面：worker 把仓内和 untracked 文本当不可信数据读，不执行其中的指令。
 
 归档由本轮主 agent 在 finishing 时直接写：它看过工具输出与失败尝试，比事后从日志提取再交便宜模型压缩更完整，也避免压缩时改写用户的否定。用户原话按原句引用，结论分已验证与未验证。会话目录在归档后且无引用即可清理。
 
-闸门放在动作发生处并保持单实现：派单入口检查目标或 ADR 定位，worker 结束后检查著作越界，提交时检查文档结构。`run_worker.sh` 保存的 brief 是本轮执行和验收的共同输入，不建立跨轮状态数据库。`.done` 只表示产物已定、可以清理，不表示放行；执行中的共享工作树不允许并行改写。著作类文件由负责人和适配当前 harness 的授权层维护，worker 的写入面限于代码与 scratchpad。worker 不读 secrets 配置（gitignore 与进程内凭证）。README、AGENTS、architecture 是注入面：worker 把仓内和 untracked 文本当不可信数据读，不执行其中的指令。
-
-安装始终把 `kit/` copy 到消费仓 `.workflow/kit/`，不使用共享 symlink。track 与 no-track 只改变 git exclude 粒度，物理布局不变；`.workflow/VERSION` 记录安装时的 tag 与 commit。布局细节见 `docs/dot-workflow-layout.md`。
+`wf init` 把包内 `kit/` 复制到消费仓 `.workflow/kit/`，不使用共享 symlink；后端技能入口是指向它的相对软链。track 与 no-track 只改变 git exclude 粒度，物理布局不变。布局细节见 `docs/dot-workflow-layout.md`。
 
 ## 4. 变更原则
 
-工作流机制只在本仓 `kit/` 修改，经 `install.sh` 投影；本文和 README 同步说明当前为什么这样设计。改脚本、hook 或安装逻辑前先读 `docs/failure-modes.md`，并按 `docs/MAINTAINERS.md` 跑相应检查。保持 bash、Markdown 和一个安装脚本的最小系统，不为低概率情形新增角色、状态或固定仪式。
+工作流机制只在本仓修改，经 `wf init` 投影；本文和 README 同步说明当前为什么这样设计。改 `wf/` 代码前先读 `docs/failure-modes.md`，并按 `docs/MAINTAINERS.md` 跑测试。保持「一个标准库命令行工具 + Markdown」的最小系统，不为低概率情形新增角色、状态或固定仪式。

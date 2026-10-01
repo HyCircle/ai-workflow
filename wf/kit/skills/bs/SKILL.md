@@ -25,17 +25,14 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 
 ## 收敛流水线(发散 → 红队 → 著作 ADR → 再红队 → 交棒)
 
-> **外呼纪律**(①④两道红队都照此):`call_agent.sh` 走**后台**(`run_in_background`),派完即停、别前台轮询——harness 在外呼进程结束时自动重唤你,通知到了再读红队产物。
+> **外呼纪律**(①④两道红队都照此):`wf ask` 走**后台**(`run_in_background`),派完即停、别前台轮询——harness 在外呼进程结束时自动重唤你,通知到了再读红队产物。
 
-**① 红队 BS 选项册**(异构只读模型,便宜、省 Claude 额度;走 `call_agent.sh` 只读方式外呼,**不走 `run_worker.sh`**——那是施工编排、会注入交付契约):
+**① 红队 BS 选项册**(异构只读模型,便宜、省 Claude 额度;用 `wf ask` 只读外呼,不用 `wf run`——那是施工编排、会注入交付契约):
 ```bash
-# 后端/模型 取 .workflow/workflow.env 的验收档(或换先验轮换);红队词 + 选项册作为 prompt 文件传入,别复述。
+# review = workflow.env 的验收档(也可直接写「后端/模型」换先验);红队词 + 选项册作为 prompt 文件传入,别复述。
 # 批评落成 redteam-options.md(供你吸收、供用户本 session 审阅)。
-.workflow/kit/scripts/call_agent.sh --mode read-only \
-  --out .workflow/scratchpad/BS-<id>/redteam-options.md \
-  --stream-log .workflow/scratchpad/BS-<id>/redteam-options.log --timeout "${WF_TIMEOUT_REVIEW:-1200}" \
-  "$WF_REVIEW_MODEL" \
-  .workflow/kit/skills/bs/redteam-options.md .workflow/scratchpad/BS-<id>/options.md
+wf ask review .workflow/kit/skills/bs/redteam-options.md .workflow/scratchpad/BS-<id>/options.md \
+  --out .workflow/scratchpad/BS-<id>/redteam-options.md
 ```
 
 **② 吸收批评,收敛,著作 ADR**——**记决策,不记实现**:
@@ -49,11 +46,8 @@ description: 启动 BS(脑暴)角色。对一个设计问题做发散探索,产�
 
 **④ 冻结前过 ADR 红队(闸门2)**——动工前、纸面上,交异构只读模型审一遍新建或修改后的 ADR(批评固定落盘 redteam-adr-NNNN.md):
 ```bash
-.workflow/kit/scripts/call_agent.sh --mode read-only \
-  --out .workflow/scratchpad/BS-<id>/redteam-adr-NNNN.md \
-  --stream-log .workflow/scratchpad/BS-<id>/redteam-adr-NNNN.log --timeout "${WF_TIMEOUT_REVIEW:-1200}" \
-  "$WF_REVIEW_MODEL" \
-  .workflow/kit/skills/bs/redteam-adr.md .workflow/decisions/NNNN-<slug>.md
+wf ask review .workflow/kit/skills/bs/redteam-adr.md .workflow/decisions/NNNN-<slug>.md \
+  --out .workflow/scratchpad/BS-<id>/redteam-adr-NNNN.md
 ```
 裁决红队与用户意见,把采纳的结论正面写入对应契约,按用户授权翻 `status: accepted`。发现影响选择的新信息时先展示修订后的具体方案。红队原文落 redteam-adr-NNNN.md 仅供本 session 审阅;**ADR 正文与引用一律不指向 `.workflow/scratchpad/`**,吸收后原文随 session GC、不升 durable。
 

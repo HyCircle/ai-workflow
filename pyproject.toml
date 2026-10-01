@@ -1,0 +1,19 @@
+[project]
+name = "ai-workflow"
+version = "0.2.0"
+description = "半自动多 agent 开发工作流:技能、纪律与 wf 命令"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+wf = "wf.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wf"]
+
+[dependency-groups]
+dev = ["pytest"]

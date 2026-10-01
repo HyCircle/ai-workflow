@@ -12,6 +12,6 @@
 做法建议：<仅非显然处；在授权边界内可调整，说明重要偏离>
 
 <!-- 定向方案审时写明具体疑点；复派时只保留当前要求，说明已撤回的旧前提。
-输入保存至 .workflow/scratchpad/PL-<id>/WO-current.md，run_worker 会保存本轮快照。
+输入保存至 .workflow/scratchpad/PL-<id>/WO-current.md，wf run 会保存本轮快照。
 有相关 ADR 时在依据中引用 ADR-NNNN；编号可用 WO-<ADR>-<序号>，无 ADR 的任务用简短名称。
 -->

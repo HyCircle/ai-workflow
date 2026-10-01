@@ -5,14 +5,14 @@
 
 ## 项目工具约定
 
-具体命令与模型档位是**单机 / 项目级配置**,唯一改 workflow.env(本地忽略,换项目 / 换模型只动那一处)。scripts 从它取默认值,skill 里的命令示例以它为准。**当前项目栈:`<填,如 Python + uv>`**——在 `.workflow/workflow.env` 填 `WF_TEST_CMD` / `WF_PY`。
+具体命令与模型档位是**单机 / 项目级配置**,唯一改 workflow.env(本地忽略,换项目 / 换模型只动那一处)。`wf` 命令从它取默认值。**当前项目栈:`<填,如 Python + uv>`**——在 `.workflow/workflow.env` 填 `WF_TEST_CMD`。
 
-**派单模型分档**(便宜劳力,写法「后端/模型」,后端 `cursor|codex`,省前缀=cursor):
+**派单模型分档**(便宜劳力,写法「后端/模型」,后端 `cursor|codex|claude`,省前缀=cursor;`wf` 命令里可用 `worker` / `review` / `strong` 指代):
 - `WF_WORKER_MODEL` — 默认执行(量大最省)。
 - `WF_REVIEW_MODEL` — 独立审查默认档，选择与 worker 不同的模型家族。
 - `WF_REVIEW_MODEL_STRONG` — 需要更强判断或第二审有明确收益时使用。
 
-换型号 / 换厂就改这三个别名的值,不要在脚本或 skill 里写死具体型号。
+换型号 / 换厂就改这三个别名的值,不要在 skill 里写死具体型号。
 
 ## 文档路由(skills 正文用简写,以此为准)
 
@@ -25,7 +25,6 @@
 | patterns | `.workflow/patterns/` | 按任务类型的手册：步骤、坑、验证清单 | 当前任务属于某份手册的类型时(看文件名与文件头) |
 | 会话归档 | `.workflow/scratchpad/_archive/` | finishing 写的历史会话记录(本机保留、忽略) | 用户要求或需要追溯某次会话时 |
 | workflow.env | `.workflow/workflow.env` | 本机命令 / 模型档(忽略) | 跑命令、派单时 |
-| kit scripts | `.workflow/kit/scripts/` | 派单 / 外呼 | 派单时 |
 | scratchpad | `.workflow/scratchpad/` | 临时产物(忽略) | — |
 
 局部修改直接读相关代码、测试和数据。

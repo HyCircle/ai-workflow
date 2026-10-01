@@ -2,20 +2,19 @@
 
 English | [中文](README.md)
 
-A **semi-automated multi-agent development workflow** that you install into any git project. The agent you are chatting with (Claude Code, Codex, or Cursor) acts as the *owner*. It hands implementation work to cheaper external models and sends the result to a model from a different family for independent review. Design decisions are recorded as ADRs, and each session's conversation is compacted and archived.
+A **semi-automated multi-agent development workflow** you can install into any git project. The agent you are chatting with (Claude Code, Codex, or Cursor) acts as the *owner*. When it pays off, it hands implementation to cheaper external models and sends the result to a model from another family for independent review. Long-lived design goes into ADRs, each session is archived by the agent that did the work, and lessons for recurring kinds of tasks go into playbooks.
 
-This repository is the **single source** of the mechanism. You don't work in it directly. You run `install.sh` to install it into the project you are developing.
-
-> The skills, prompts, and runtime docs are written in Chinese. The agents follow them regardless of the language you chat in.
+This repository is the **single source** of the workflow. It installs as a command-line tool, `wf`, and `wf init` sets it up in the project you want to work on.
 
 ---
 
 ## What it's for
 
-- **Expensive models spend their time on judgment.** The main agent understands the goal, breaks down the problem, and rules on the results. Writing code and running experiments can go to cheaper models.
-- **No model grades its own work.** By default, review goes to a model from a different family than the worker (for example, Cursor Composer writes and Grok reviews). A second GPT review can be added when it's worth it.
-- **Scripts do the key checks.** A script or git hook checks whether a work order states a goal, whether the worker edited docs it shouldn't touch, and whether ADR structure and references are intact at commit time. None of this relies on the agent remembering to check.
-- **Long-lived knowledge and scratch work live apart.** Design decisions (ADRs), the architecture overview, and the TODO list go into git. Work orders, logs, and review sheets stay in a local scratchpad and are cleaned up after use. Each session is archived on your machine by the agent that did the work; lessons for recurring kinds of tasks go into task-type playbooks.
+- **Spend expensive-model time on judgment.** The main agent understands the goal, breaks down the problem, and rules on results. Writing code and running experiments can go to cheaper models.
+- **No model grades its own work.** Reviews go by default to a different model family from the one that did the work: for example, Cursor Composer writes and Grok reviews, with an optional second review from GPT.
+- **Context on demand.** The root instructions in `AGENTS.md` are a router that says what to read when; agents don't preload the whole doc set.
+- **Design stays coherent.** ADRs are one per topic and edited in place. When the project grows complex, `/holistic` reviews the whole design and merges or removes what's redundant.
+- **Lessons have a home.** Pitfalls and practices learned in a session go into task-type playbooks that are read the next time you do the same kind of task.
 
 ## Core concepts
 
@@ -29,97 +28,83 @@ This repository is the **single source** of the mechanism. You don't work in it 
 | `/cleaning` | Cleanup | Run on demand (every few sessions, or when docs look stale), on a cheap model. Merges playbook candidates from recent archives into `patterns/`, then sweeps everything inside the project's writable scope: docs vs. code, dead files and duplication, architecture/TODO, ADR references, old scratch. Mechanical fixes are applied directly; deleting or rewriting tracked files goes through a candidate list you confirm. |
 | `/holistic` | Overall review | Run on a strong model when the project grows complex or a major phase ends. Reads architecture, every ADR, and the key code; finds cross-ADR conflicts, overlap, seam bugs, and needless complexity; proposes an overall plan to merge, delete, and simplify, then executes what you confirm. |
 
-Two more roles are dispatched by scripts. You don't talk to them directly:
+Two more roles are called by `wf`. You don't talk to them directly:
 
-- **worker**: a model running in an external CLI (`cursor-agent` or `codex`). It edits code according to the brief and never commits. Its final reply is its report.
-- **reviewer**: an external model running read-only. It reads `git diff` and the brief and outputs structured findings.
+- **worker**: a model in an external CLI (`cursor-agent`, `codex`, or `claude`). It edits code in the current working tree according to the brief, never commits, and its final reply is its report.
+- **reviewer**: a read-only external model. It reads the current changes and the brief and outputs a list of problems.
 
-### Every kind of document has one home
+### Where each kind of document lives
 
-| Location (after install) | Contents | In git? |
+| Location (after install) | Contents | Committed? |
 |---|---|---|
 | `AGENTS.md` (repo root) | Project tool conventions and the doc router (what to read when). The root instructions shared by all three harnesses. | Yes, in track mode |
-| `.workflow/kit/discipline.md` | Six standing rules: less is more, no patch-on-patch, no silent fallbacks, … | No (installed copy) |
+| `.workflow/kit/discipline.md` | Six standing rules (less is more, no patch-on-patch, no reflexive fallbacks, …) | No (copy of the kit) |
 | `.workflow/decisions/NNNN-slug.md` | ADRs: long-lived decisions, one per topic. When a decision changes, edit it in place; git history keeps old versions. | Yes, in track mode |
 | `.workflow/architecture.md` | Global map of the current system. When it conflicts with an ADR, the ADR wins. | Yes, in track mode |
 | `.workflow/TODO.md` | Flat list of next steps, open items, and known issues. Items are deleted when done. | Yes, in track mode |
 | `.workflow/patterns/` | Playbooks per task type: steps, pitfalls, verification checklist | Yes, in track mode |
-| `.workflow/scratchpad/` | Work orders, run logs, review sheets | No |
+| `.workflow/scratchpad/` | Briefs, run outputs, and other temporary files | No |
 | `.workflow/scratchpad/_archive/` | Session archives written by finishing, kept long-term on this machine and skipped by routine cleanup | No |
 
 ---
 
-## Requirements
+## Prerequisites
 
 | Dependency | Used for |
 |---|---|
-| bash, git, coreutils (`timeout`, `sha256sum`) | All scripts |
-| `jq` | Token-usage parsing in `run_worker.sh` |
-| Python 3 (standard library only) | Doc checks. Called via `uv run python` by default; set `WF_PY="python3"` if you don't use uv. |
+| Linux, macOS, or WSL; git | Runtime environment |
+| [uv](https://docs.astral.sh/uv/) (or pipx), Python 3.10+ | Installing `wf`; `wf` uses only the standard library |
 | At least one main agent: Claude Code / Codex / Cursor | Running the `/bs`, `/planner`, … skills |
-| At least one dispatch CLI: `cursor-agent` and/or `codex`, logged in | Calling the worker and reviewer |
+| Dispatch CLIs: any of `cursor-agent`, `codex`, `claude`, logged in | Calling workers, reviewers, and red teams |
 
-> If you only use `/bs`, `/finishing`, `/cleaning`, and `/holistic`, or if the planner does all the work itself, you can skip the dispatch CLIs.
+> If you don't dispatch work or run red teams, you can skip the dispatch CLIs.
 
 ---
 
 ## Quick start
 
-### 1. Install into your project
+### 1. Install `wf` and set up your project
 
 ```bash
-git clone <this-repo-url> ~/tools/ai-workflow
-
-# Defaults: --track --backends cc
-~/tools/ai-workflow/install.sh /path/to/your-project
+uv tool install git+<this-repo-url>   # installs the wf command; upgrade with: uv tool upgrade ai-workflow
+cd /path/to/your-project
+wf init                               # track mode, Claude Code entry only, by default
 ```
 
 Common options:
 
 ```bash
-# Create entry points for both Claude Code and Codex
-install.sh --backends cc,codex /path/to/your-project
-
-# Keep all workflow files out of version control
-install.sh --no-track /path/to/your-project
+wf init --backends cc,codex           # entries for both Claude Code and Codex
+wf init --no-track                    # keep all workflow files out of version control
 ```
 
-### 2. Set up local config
+Re-running `wf init` is how you upgrade: it overwrites only `.workflow/kit/`. ADRs, architecture, TODO, patterns, `workflow.env`, and an existing `AGENTS.md` are left alone.
+
+### 2. Fill in local config
+
+The first `wf init` creates `.workflow/workflow.env`. Edit it for your project:
 
 ```bash
-cd /path/to/your-project
-cp .workflow/kit/workflow.env.example .workflow/workflow.env
-```
+WF_TEST_CMD="uv run pytest"                      # how to run tests, e.g. "npm test", "go test ./..."
 
-Edit `.workflow/workflow.env`:
-
-```bash
-WF_TEST_CMD="uv run pytest"      # how your project runs tests, e.g. "npm test", "go test ./..."
-WF_PY="uv run python"            # how to run python; "python3" if you don't use uv
-
-# Dispatch models, written as "backend/model". The backend is cursor | codex;
-# with no prefix it defaults to cursor.
+# Dispatch models, written as "backend/model". Backend is cursor | codex | claude; cursor if omitted.
 WF_WORKER_MODEL="cursor/composer-2.5"            # worker: high volume, pick the cheapest
-WF_REVIEW_MODEL="cursor/cursor-grok-4.6-high"    # default reviewer: a different model family
-WF_REVIEW_MODEL_STRONG="codex/gpt-5.6-terra"     # stronger / second reviewer
+WF_REVIEW_MODEL="cursor/cursor-grok-4.6-high"    # default reviewer: a different family from the worker
+WF_REVIEW_MODEL_STRONG="codex/gpt-5.6-terra"     # stronger reviewer / second review
 ```
 
-Note that `cursor/` and `codex/` say **which CLI dispatches the call**. They don't tell you which family the model belongs to. The reviewer should come from a different model family than the worker.
+`cursor/`, `codex/`, and `claude/` name **which CLI makes the call**, not which company the model comes from. The reviewer must be from a different model family than the worker. In `wf` commands, `worker`, `review`, and `strong` refer to these three settings.
 
-Optional timeouts, in seconds (defaults in parentheses): `WF_TIMEOUT_WORKER` (1800), `WF_TIMEOUT_REVIEW` (1200), `WF_TIMEOUT_TEST` (600), `WF_TIMEOUT_CHECK_DOCS` (120).
+### 3. Add project info
 
-### 3. Fill in project details
+- In `AGENTS.md`, under the project tool conventions, describe this project's stack.
+- Create `.workflow/architecture.md` and `.workflow/TODO.md` as needed.
+- **Claude Code users**: the root instructions file is `AGENTS.md`. Turn on the Claude Code Project instructions setting that loads `AGENTS.md`; see the [official notes](https://github.com/anthropics/claude-code/blob/main/mods/agents-md/README.md).
 
-- Describe your tech stack under "项目工具约定" (project tool conventions) in `AGENTS.md`.
-- Create empty `.workflow/architecture.md` and `.workflow/TODO.md` if you want them.
-- **Claude Code users**: the root instruction file is `AGENTS.md`, and the installer does not create a `CLAUDE.md`. Turn on the Claude Code Project instructions setting that loads `AGENTS.md`; see the [official note](https://github.com/anthropics/claude-code/blob/main/mods/agents-md/README.md).
-
-### 4. Run your first cycle
-
-Open your main agent in the project:
+### 4. Run a first cycle
 
 ```text
-/bs What caching approach should we use?     # design question: explore, produce ADR-0001
+/bs What caching approach should we use?     # design question: explore, produce an ADR
 /planner Implement the cache per ADR-0001    # delivery: planner does it or dispatches
 /finishing                                   # wrap-up: archive, update TODO, hand off
 ```
@@ -131,11 +116,11 @@ In the next session, paste the "opening prompt for the next session" from the ha
 ## How a cycle works
 
 ```text
-bs         explore options → cross-family red team → write ADR → red team again → user accepts
+bs         explore options → cross-family red team → write or merge ADR → red team again → user accepts
 planner    read goal and current state → triage → do it yourself OR write a brief and dispatch
            → read results, verify the key call paths → rule → rework if needed
 worker     implement within the brief's goal and boundaries; report results, deviations, contradictions
-reviewer   read-only review of the actual changes; structured findings
+reviewer   read-only review of the actual changes; list of problems
 finishing  write archive → update TODO → list playbook candidates → hand off
 cleaning   (on demand) merge playbooks → repo-wide sweep → fix mechanical items, list judgment calls → prune scratch
 holistic   (on demand) read the whole design → find cross-ADR problems → overall plan → execute after user confirms
@@ -145,108 +130,74 @@ Not every task needs the full cycle. The planner makes small local fixes itself.
 
 ### Dispatching: write a brief
 
-Save the brief to `.workflow/scratchpad/PL-<session-UUID>/WO-current.md`. The template is at `.workflow/kit/skills/planner/WO-TEMPLATE.md`. The field labels are in Chinese: 目标 = goal, 依据与边界 = basis and boundaries, 交付与证据 = deliverables and evidence.
+Briefs go in `.workflow/scratchpad/PL-<session-UUID>/WO-current.md`. The template is `.workflow/kit/skills/planner/WO-TEMPLATE.md`:
 
 ```markdown
-# Add TTL to the cache
+# Add a TTL to the cache layer
 
-目标：cache entries expire 10 minutes after write; reading an expired entry falls through to the source
+Goal: cache entries expire 10 minutes after they are written; reading an expired entry falls through to the source
 
-依据与边界：ADR-0003; only touch src/cache/, keep the public interface unchanged
+Basis and boundaries: ADR-0003; only touch src/cache/, leave the public interface alone
 
-交付与证据：unit tests for expiry and fallthrough; a log excerpt from one real call
+Deliverables and evidence: unit tests for expiry and fall-through; a log excerpt from one real call
 ```
 
-The entry gate checks one thing only: there must be a `目标：…` (goal) line whose text is non-empty and not a bare `<placeholder>`. The legacy form `本单服务 → ADR-NNNN 的意图: …` is also accepted.
-
-### Four ways to run `run_worker.sh`
+### `wf` commands
 
 ```bash
-# Default: worker runs + tests + doc check + overreach check + independent review
-.workflow/kit/scripts/run_worker.sh .workflow/scratchpad/PL-<id>/WO-current.md
-
-# Exploration / small tasks: run only and hand the result back to the planner
-# (the overreach check still runs; tests and review don't)
-SKIP_REVIEW=1 .workflow/kit/scripts/run_worker.sh <brief>
-
-# Code already exists: review and machine checks only
-REVIEW_ONLY=1 .workflow/kit/scripts/run_worker.sh <brief>
-
-# Targeted design review before building: reviews the brief only; nothing runs
-WO_REVIEW=1 .workflow/kit/scripts/run_worker.sh <brief>
-
-# Positional args override models: <brief> [worker] [reviewer] [second reviewer]
-# Passing a 4th arg gives a dual review (both reviewers run in parallel)
-.workflow/kit/scripts/run_worker.sh <brief> "" "" "$WF_REVIEW_MODEL_STRONG"
+wf run <brief>                      # the worker implements; results go back to the planner
+wf run <brief> --review             # implement + tests + independent review
+wf review <brief> [--model strong]  # tests + independent review of the current tree; rerun with another model for a second review
+wf ask <model> <prompt-files...> [--out FILE] [--write]
+                                    # the call primitive, read-only by default: red teams and plan reviews use it
+wf init [--no-track] [--backends cc,codex,cursor]
 ```
 
-Each run writes to `.workflow/scratchpad/runs/<timestamp>-<pid>/`:
+Model arguments are `worker` / `review` / `strong` or `backend/model`. Worker and reviewer prompts start with the discipline file.
+
+Each `run` / `review` keeps its outputs in `.workflow/scratchpad/runs/<timestamp>-<random-suffix>/`:
 
 | File | Contents |
 |---|---|
-| `brief.md` | Snapshot of this run's input. The worker and every reviewer see the same copy. |
-| `report.md` | Worker report. It's the worker's own account; the planner has to verify it. |
-| `review.md` / `review2.md` | Review sheets |
-| `run.log` | Full raw stream and token usage |
-| `.done` | Outputs are final and can be pruned by age. **This does not mean approved.** |
+| `brief.md` | Snapshot of this round's input |
+| `report.md` | The worker's report (its own account; the planner verifies it) |
+| `review.md` | The review sheet |
+| `test.log` | Test output |
+| `*-prompt.md`, `*.log` | The prompts actually sent and the raw output streams (you can `tail -f` them) |
+| `summary.md` | Same as the command output: exit codes and usage of each call, overreach check, test result, report, review, git status |
+| `.done` | Outputs are final and can be cleaned up by age |
 
-### STATUS
+Exit codes: 0 means every call finished normally (not that the work passed); 2 means a call failed. The planner makes the final call: green tests only prove that the assertions that ran hold.
 
-| STATUS | Meaning | Next step |
-|---|---|---|
-| `review_complete` | No blocking findings, and every applicable machine check passed | The planner checks against the real results whether the goal was actually met |
-| `review_blocked` | Blocking findings, or the tests / doc check / overreach check failed | Verify each issue. Fix the code, change the plan, or reject the finding with a reason. |
-| `review_skipped` | No independent review this run (`SKIP_REVIEW=1`) | Arrange verification that matches the risk |
-| `infra_failed` | Call failed, timed out, or the review sheet couldn't be parsed (exit code 2) | Check the log and the working tree. If only a reviewer failed, re-run with `REVIEW_ONLY=1`; the worker doesn't need to run again. |
+**Overreach check**: before and after the worker runs, `wf` compares the owner-authored files (`.workflow/decisions/`, `architecture.md`, `patterns/`, `AGENTS.md`); anything the worker changed is listed in the summary. Changes that existed before dispatch don't count.
 
-STATUS is information only and never blocks a commit. The planner makes the final call: green tests only prove that the assertions that ran hold.
+**Read-only**: cursor uses its read-only mode; claude has editing tools disabled; codex is constrained by the prompt. None of them run in a sandbox.
 
 ### Wrap-up and archiving
 
 `/finishing` has the main agent of the session write the archive itself: `.workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.md`, whose first line records the backend, session UUID, branch, and HEAD. The writer is the agent that did the work and saw the tool output and the failed attempts, so nothing has to be extracted and compacted afterwards. The user's constraints, corrections, and decisions are quoted verbatim; verified and unverified conclusions are listed separately.
 
-Archives are cold storage: not read by default, only when you need to trace something back. Experience that should be picked up next time you do the same kind of task belongs in the `patterns/` playbooks.
-
-Archives are kept long-term on your machine, but git ignores them. **They are not a backup.**
+Archives are cold storage: not read by default, only when you need to trace something back. Experience that should be picked up next time you do the same kind of task belongs in the `patterns/` playbooks. Archives are kept long-term on your machine, but git ignores them. **They are not a backup.**
 
 ---
 
-## Gates and boundaries
-
-| Gate | When it runs | What it checks |
-|---|---|---|
-| Goal gate | Entry to `run_worker.sh` | The brief has a non-empty `目标：` line |
-| Overreach check | After the worker runs | Whether the worker touched `.workflow/decisions/`, `.workflow/architecture.md`, or `AGENTS.md`. Only the owner writes those; if they were touched, STATUS is `review_blocked`. |
-| Doc check | During review (`--changed`) and on `git commit` (pre-commit hook, `--staged`) | ADR frontmatter, file name matches its id, no broken `ADR-NNNN` references |
-
-To check the whole repo by hand: `$WF_PY .workflow/kit/scripts/check_docs.py`.
-
-Other rules: the worker never commits, and the main agent commits only when you explicitly allow it. `run_worker.sh` reviews **all** changes relative to HEAD, untracked files included. Any changes already in the working tree before you dispatch should either be named as part of the task or be moved out of the way first.
-
----
-
-## Layout after install
+## Project layout after install
 
 ```text
 your-project/
 ├── AGENTS.md                    # root instructions: tool conventions + doc router
 ├── .workflow/
-│   ├── kit/                     # installed copy of the mechanism (overwritten on every install)
+│   ├── kit/                     # copy of the kit (overwritten on every wf init)
 │   │   ├── discipline.md
 │   │   ├── skills/{bs,planner,finishing,cleaning,holistic}/
-│   │   ├── scripts/             # run_worker / call_agent / check_docs …
-│   │   ├── git-hooks/pre-commit
-│   │   ├── settings.json
 │   │   └── workflow.env.example
 │   ├── decisions/0000-template.md   # ADR template
 │   ├── architecture.md  TODO.md     # you create these
 │   ├── patterns/                    # playbooks, created when cleaning merges the first one
 │   ├── workflow.env                 # local config
-│   ├── scratchpad/                  # scratch outputs (including _archive/)
-│   └── VERSION                      # which tag / commit was installed
+│   └── scratchpad/                  # scratch outputs (including runs/ and _archive/)
 ├── .claude/skills → ../.workflow/kit/skills   # --backends cc
-├── .agents/skills → ../.workflow/kit/skills   # --backends codex
-└── .git/hooks/pre-commit
+└── .agents/skills → ../.workflow/kit/skills   # --backends codex
 ```
 
 ### track vs. no-track
@@ -255,32 +206,22 @@ Both modes produce the same files. The only difference is what's written to `.gi
 
 | Mode | Ignored locally | Committed |
 |---|---|---|
-| `--track` (default) | `.workflow/kit/`, `.workflow/workflow.env`, `.workflow/scratchpad/`, backend entry dirs | `AGENTS.md`, `decisions/`, `architecture.md`, `TODO.md`, `patterns/`, `VERSION` |
+| track (default) | `.workflow/kit/`, `.workflow/workflow.env`, `.workflow/scratchpad/`, backend entry dirs | `AGENTS.md`, `decisions/`, `architecture.md`, `TODO.md`, `patterns/` |
 | `--no-track` | All of `.workflow/`, `AGENTS.md`, backend entry dirs | Nothing |
 
-In no-track mode your ADRs exist only on your machine; if you lose them, they're gone. To switch modes, re-run the installer. The exclude block is rewritten every time.
+In no-track mode your ADRs exist only on your machine; if you lose them, they're gone. To switch modes, re-run `wf init`. The exclude block is rewritten every time.
 
-### Backend entry points (`--backends`)
+### Backend entries (`--backends`)
 
-| Value | What gets created |
+| Value | What it creates |
 |---|---|
-| `cc` (default) | `.claude/skills` symlink, plus a `.claude/settings.json` on first install |
+| `cc` (default) | `.claude/skills` symlink |
 | `codex` | `.agents/skills` symlink |
-| `cursor` | Nothing of its own, since Cursor reads `.claude`/`.agents`. If cursor is the only backend, it borrows `.claude/skills`. |
+| `cursor` | Cursor reads `.claude`/`.agents`, so no entry of its own; if cursor is the only backend, it borrows `.claude/skills` |
 
-There is only one copy of the skills (`.workflow/kit/skills`). Every entry point is a relative symlink to it.
+There is one source for the skills (`.workflow/kit/skills`), and every entry is a relative symlink to it. If something else already sits where an entry would go, `wf init` leaves it alone and tells you.
 
-### Upgrading and reinstalling
-
-After changing this repo, re-run the same `install.sh` command on the target project. Only `.workflow/kit/` and `VERSION` are overwritten. ADRs, architecture, TODO, `workflow.env`, the scratchpad, and an existing `AGENTS.md` are left alone.
-
-Things the installer may tell you:
-
-- The target already has `.git/hooks/pre-commit`: it isn't overwritten. Merge in `.workflow/kit/git-hooks/pre-commit` by hand.
-- There's an existing `CLAUDE.md`: if it's only the `@AGENTS.md` stub or symlink that older versions of this workflow created, it's removed. Content your project wrote is kept, and you're told to merge it into `AGENTS.md`.
-- The target isn't a git repo yet: the exclude and hook steps are skipped. Run `git init` and install again.
-
-There's no uninstall script. To remove it by hand, delete `.workflow/kit/` (or all of `.workflow/`), `.claude/skills`, `.agents/skills`, and `.git/hooks/pre-commit`. Then remove the lines from `ai-workflow BEGIN` to `END` in `.git/info/exclude`.
+There's no uninstall command. To remove it by hand, delete `.workflow/kit/` (or all of `.workflow/`), `.claude/skills`, and `.agents/skills`. Then remove the lines from `ai-workflow BEGIN` to `END` in `.git/info/exclude`.
 
 ---
 
@@ -288,42 +229,29 @@ There's no uninstall script. To remove it by hand, delete `.workflow/kit/` (or a
 
 ```text
 ai-workflow/
-├── install.sh        # install / upgrade into a target project
-├── kit/              # the mechanism; copied as-is to the target's .workflow/kit/
-│   ├── discipline.md
-│   ├── skills/       # bs / planner / finishing / cleaning (brief template, worker/review preambles, red-team prompts)
-│   ├── scripts/      # run_worker.sh  call_agent.sh  derive_status.sh  lib_timeout.sh
-│   │                 # check_docs.py
-│   │   └── tests/    # run-all.sh and the test suites
-│   ├── git-hooks/pre-commit
-│   ├── settings.json
-│   └── workflow.env.example
-├── seed/             # placed in the target on first install: AGENTS.md, decisions/0000-template.md
-└── docs/             # for maintainers only; never installed into targets
-    ├── design.md             # design rationale and trade-offs
-    ├── dot-workflow-layout.md# the .workflow/ layout contract
+├── pyproject.toml    # package definition; wf entry point
+├── wf/               # the command-line tool (standard library only)
+│   ├── cli.py        # command entry and config loading
+│   ├── agent.py      # call primitive: three backends, timeout kills the process tree, extracts the final reply
+│   ├── dispatch.py   # run / review: implement, overreach check, tests, review, summary
+│   ├── install.py    # init
+│   ├── kit/          # the workflow itself; wf init copies it into the project's .workflow/kit/
+│   │   ├── discipline.md
+│   │   ├── skills/   # bs / planner / finishing / cleaning / holistic (with brief template, worker/review preambles, red-team prompts)
+│   │   └── workflow.env.example
+│   └── seed/         # placed in the project on first install: AGENTS.md, decisions/0000-template.md
+├── tests/            # end-to-end tests with fake CLIs in place of models
+└── docs/             # for maintainers only; not installed into projects
+    ├── design.md             # design blueprint and trade-offs
+    ├── dot-workflow-layout.md# .workflow/ layout contract
     ├── failure-modes.md      # known failure modes (read before changing the mechanism)
     ├── MAINTAINERS.md        # maintenance process
     └── history/              # archived diagnoses and plans, not current policy
 ```
 
-What each script does:
+### Changing the workflow
 
-- `run_worker.sh`: orchestration. It runs the goal gate, snapshots the brief, runs the worker, runs the overreach check, the tests, and the doc check, runs the reviews in parallel, derives STATUS, and prints the summary.
-- `call_agent.sh`: the single way to call `cursor-agent` / `codex`. It streams to the log, applies per-role timeouts, and kills the whole process tree on timeout. Exit codes: 0 OK, 124 timeout, 3 agent error, 4 truncated stream.
-- `derive_status.sh`: derives STATUS purely from the machine-check results and the review sheets.
-- `check_docs.py`: checks ADR structure and broken links, over the whole repo, `--changed` files, or `--staged` files.
-
-### Changing the mechanism
-
-1. Only edit `kit/` (or `install.sh`) in this repo. Never edit the `.workflow/kit/` copy inside a target project.
-2. Before touching scripts, hooks, or install logic, read `docs/failure-modes.md`.
-3. Run the full test suite locally before pushing (there's no CI):
-
-   ```bash
-   bash kit/scripts/tests/run-all.sh      # WF_PY overrides the python interpreter
-   ```
-
-4. Re-run `install.sh` on target projects to roll out the update.
-
-For the full design rationale see [docs/design.md](docs/design.md); for maintenance conventions see [docs/MAINTAINERS.md](docs/MAINTAINERS.md). Both are in Chinese.
+1. Change this repo only, never the `.workflow/kit/` copy inside a project.
+2. Before changing code in `wf/`, read `docs/failure-modes.md`.
+3. Run the tests before committing: `uv run --group dev pytest tests -q`.
+4. To update your machine: `uv tool install --reinstall .`, then re-run `wf init` in each project.
