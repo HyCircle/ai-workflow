@@ -167,3 +167,13 @@ def test_module_entry_point():
     out = subprocess.run([sys.executable, "-m", "wf", "--help"], capture_output=True, text=True,
                          cwd=Path(__file__).parent.parent)
     assert out.returncode == 0 and "review" in out.stdout
+
+
+def test_overreach_detected_when_workflow_files_are_git_ignored(fake, repo, monkeypatch, capsys):
+    """no-track 模式下 .workflow/ 与 AGENTS.md 被 git 忽略,越界检查仍要看到 worker 的改动。"""
+    brief = _setup_workflow(repo, "true")
+    (repo / ".workflow/decisions/0001-a.md").write_text("已有决定\n")
+    (repo / ".git/info/exclude").write_text("/.workflow/\n/AGENTS.md\n")
+    monkeypatch.setenv("FAKE_TOUCH", ".workflow/decisions/0001-a.md")
+    main(["run", str(brief)])
+    assert "越界改动(负责人著作的文件): .workflow/decisions/0001-a.md\n" in capsys.readouterr().out

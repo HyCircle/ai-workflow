@@ -25,13 +25,14 @@ def _git(root: Path, *args: str) -> str:
 
 
 def _protected_state(root: Path) -> dict[str, str]:
-    """受保护路径中有未提交改动的文件 → 内容哈希。前后对比得出 worker 动过的文件。"""
-    paths = _git(root, "diff", "--name-only", "--no-renames", "-z", "HEAD", "--", *PROTECTED)
-    paths += _git(root, "ls-files", "--others", "--exclude-standard", "-z", "--", *PROTECTED)
+    """受保护路径下全部文件 → 内容哈希,直接读文件系统(no-track 模式下这些文件被 git 忽略)。
+    前后对比得出 worker 动过的文件;消失的文件在前后差集里体现。"""
     state = {}
-    for path in filter(None, paths.split("\0")):
-        f = root / path
-        state[path] = hashlib.sha256(f.read_bytes()).hexdigest() if f.is_file() else "deleted"
+    for rel in PROTECTED:
+        top = root / rel
+        for f in sorted(top.rglob("*")) if top.is_dir() else [top]:
+            if f.is_file():
+                state[f.relative_to(root).as_posix()] = hashlib.sha256(f.read_bytes()).hexdigest()
     return state
 
 

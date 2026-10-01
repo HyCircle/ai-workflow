@@ -91,7 +91,7 @@ planner 对整体和关键调用链自主核实，不能只转述报告。测试
 
 归档由本轮主 agent 在 finishing 时直接写：它看过工具输出与失败尝试，比事后从日志提取再交便宜模型压缩更完整，也避免压缩时改写用户的否定。用户原话按原句引用，结论分已验证与未验证。会话目录在归档后且无引用即可清理。
 
-`wf init` 把包内 `kit/` 复制到消费仓 `.workflow/kit/`，不使用共享 symlink；后端技能入口是指向它的相对软链。track 与 no-track 只改变 git exclude 粒度，物理布局不变。布局细节见 `docs/dot-workflow-layout.md`。
+`wf init` 把包内 `kit/` 复制到消费仓 `.workflow/kit/`，不使用共享 symlink；后端技能入口是指向它的相对软链。track 与 no-track 只改变 git exclude 粒度，物理布局不变，布局与选项见 README。明确不做：可变路径前缀、no-track 时给 `.workflow/` 建独立 git 仓、给 cursor 单建技能入口、git 钩子与插件 / npm / Docker 包装。
 
 ## 4. 变更原则
 

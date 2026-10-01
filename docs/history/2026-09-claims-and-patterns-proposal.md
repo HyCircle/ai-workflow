@@ -16,7 +16,7 @@
 - 最近 6 份归档里没有派单。留下的 run 全是 `review_skipped`。`run_worker.sh`、状态派生和双审等约 1900 行机制，大部分时间处于闲置状态。
 - 冷启动要读的文档偏大：hubpage 的 `architecture.md` 约 54KB，开场合计约 61KB；zhidazhushou 约 32KB，另有 ADR 共约 79KB。
 - 会话里得出的“稳定但未冻”候选决定，在归档中出现 12 次，之后没有固定去处。例如 hubpage 发现的“WSL 上低端口不会立即拒连”，只存在于测试代码里。
-- 2026-09-22 的自审已经发现，低成本模型压缩对话时会反转用户的否定、漏掉拟议提交消息（见 [history/2026-09-workflow-review.md](history/2026-09-workflow-review.md)）。
+- 2026-09-22 的自审已经发现，低成本模型压缩对话时会反转用户的否定、漏掉拟议提交消息（该审视记录已删除，见 git 历史中的 `docs/history/2026-09-workflow-review.md`）。
 
 ### 1.2 对照测量
 
@@ -179,7 +179,7 @@
 4. **安装卫生与 doctor**（第 8.2、8.3 节）。可与第 1 步并行，不阻塞质疑能力。
 5. **再测一轮**。用同一套隔离与盲评方法，在另一个任务上比较“自由使用”与“自由使用加 `/challenge`”，候选任务是 hubpage 测试瘦身（基线 `4164e35`，参照 `b54300a`）。评测步骤按第 8.4 节固化。
 
-涉及脚本时按 [MAINTAINERS](MAINTAINERS.md) 跑 `bash kit/scripts/tests/run-all.sh`。
+涉及脚本时按 [MAINTAINERS](../MAINTAINERS.md) 跑 `bash kit/scripts/tests/run-all.sh`。
 
 ## 7. 如何判断有效
 
@@ -212,7 +212,7 @@
 
 | 设计 | 他们怎么做 | 本仓现状 | 是否借 |
 |---|---|---|---|
-| 安装先预览 | `mex setup --dry-run`、`mex skills sync --dry-run` | `install.sh` 直接覆盖 kit、直接 `rm -rf` 后端 `skills` 再重建软链 | **借。** `--dry-run` 只打印将改动的路径；按工作流技能名管理入口，不删除用户自己的技能。这是 [history/2026-09-workflow-review.md](history/2026-09-workflow-review.md) 已记录、尚未修的问题 |
+| 安装先预览 | `mex setup --dry-run`、`mex skills sync --dry-run` | `install.sh` 直接覆盖 kit、直接 `rm -rf` 后端 `skills` 再重建软链 | **借。** `--dry-run` 只打印将改动的路径；按工作流技能名管理入口，不删除用户自己的技能。该问题已由 `wf init` 不覆盖已有入口解决 |
 | 托管块而不是整目录覆盖 | `<!-- mex-agent:skills:start -->` … `end`，冲突时报错让人处理 | 根 `AGENTS.md` 已存在则不覆盖，但技能目录会整棵删掉 | **借托管块思路用于技能入口，不改 AGENTS 全文覆盖策略** |
 | `doctor` / `capabilities --json` | 机器可读：装了什么、索引是否新鲜、忽略规则是否正确 | 只有 `.workflow/VERSION` | **借一个小脚本。** 检查：kit 与 VERSION、软链、`workflow.env` 是否存在、`cursor-agent`/`codex`/`$WF_PY` 是否能跑、`WF_TEST_CMD` 能否启动、exclude 块是否在。给人看短文本，给脚本加 `--json` |
 | 规范文件 / 派生索引 / 本机状态三分 | 知识进 git；`graph.db` 本机重建；draft 不进 git | 已有 ADR vs kit vs scratchpad | 保持现状。质疑报告留 scratchpad，结算后的结论进 ADR 或手册 |

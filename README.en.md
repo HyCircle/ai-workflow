@@ -246,10 +246,9 @@ ai-workflow/
 ├── tests/            # end-to-end tests with fake CLIs in place of models
 └── docs/             # for maintainers only; not installed into projects
     ├── design.md             # design blueprint and trade-offs
-    ├── dot-workflow-layout.md# .workflow/ layout contract
     ├── failure-modes.md      # known failure modes (read before changing the mechanism)
     ├── MAINTAINERS.md        # maintenance process
-    └── history/              # archived diagnoses and plans, not current policy
+    └── history/              # evidence and reasoning behind implemented proposals, not current policy
 ```
 
 ### Changing the workflow

@@ -10,11 +10,11 @@
 
 ---
 
-## FM-1 · 改动清单从 `git status` 文本截取 —— 解析错改名与特殊文件名
+## FM-1 · 越界检查依赖 git 看改动 —— no-track 模式下看不见
 
-- **症状**:worker 改动含改名,或文件名第三个字符是空格时,从 porcelain 文本按位置截取路径会解析错,越界判定失真。
-- **规则**:路径清单走 git 的纯路径输出:`git diff --name-only --no-renames -z HEAD` + `git ls-files --others --exclude-standard -z`。
-- **在哪强制**:`wf/dispatch.py` 的 `_protected_state`;`tests/test_wf.py` 用带空格的文件名覆盖。
+- **症状**:用 git 列改动文件时,no-track 模式下 `.workflow/` 与 `AGENTS.md` 被 git 忽略,worker 改了 ADR 也检测不到;从 `git status` 文本截取路径还会解析错改名与特殊文件名。
+- **规则**:受保护路径直接读文件系统,对其下全部文件算内容哈希,前后对比,不经 git。
+- **在哪强制**:`wf/dispatch.py` 的 `_protected_state`;`tests/test_wf.py` 覆盖 git 忽略与带空格文件名。
 
 ## FM-2 · 越界检查把派单前已有的改动算到 worker 头上
 

@@ -246,10 +246,9 @@ ai-workflow/
 ├── tests/            # 用假 CLI 替代模型的端到端测试
 └── docs/             # 只给维护者看，不会装进目标项目
     ├── design.md             # 设计蓝图与取舍
-    ├── dot-workflow-layout.md# .workflow/ 布局契约
     ├── failure-modes.md      # 已知失效模式（改机制前必读）
     ├── MAINTAINERS.md        # 维护流程
-    └── history/              # 历史诊断与计划归档，不是现行规范
+    └── history/              # 已实施提案的证据与推理，不是现行规范
 ```
 
 ### 修改机制

@@ -14,8 +14,7 @@
 - `docs/design.md` —— 设计权威 / 蓝图(给人 / 维护者读)。**不投影进消费项目,agent 不引用**。
 - `README.md` / `README.en.md` —— 本仓结构与用法总览,中英两份同步。
 - `docs/failure-modes.md` —— 已知失效模式;改 `wf/` 代码前必扫。**维护者面向,不投影**。
-- `docs/dot-workflow-layout.md` —— `.workflow/` 布局契约。
-- `docs/history/` —— 原始诊断 / 计划的证据归档;**勿当现行规范**。
+- `docs/history/` —— 已实施提案的证据与推理归档;**勿当现行规范**。
 - `docs/MAINTAINERS.md`(本文)—— 维护流程。
 
 ## 书写纪律(路径)
