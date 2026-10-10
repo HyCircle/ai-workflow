@@ -13,9 +13,9 @@
 - **贵模型的时间花在判断上**：主 agent 负责理解目标、拆解问题、裁决结果；写代码、跑实验可以派给便宜模型。
 - **不让同一个模型给自己打分**：审查默认交给和执行者不同家族的模型，比如 Cursor Composer 写、Grok 审，必要时再加 GPT 第二审。
 - **上下文按需读取**：根指令 `AGENTS.md` 只是一张路由表，写明什么情况读什么文档，agent 不预读整套文档。
-- **设计保持全局自洽**：ADR 每个主题一份、原地修改；项目变复杂时用 `/holistic` 整体审查、合并和删减。
+- **设计保持全局自洽**：ADR 每个主题一份，记录当前设计，是可以修改的慢层；项目变复杂时用 `/holistic` 整体审查、合并和删减。
 - **结论经得起质疑**：实验类结论交 `/challenge` 找反证，施工审只看改动，不替代它。
-- **经验有去处**：会话里学到的坑和做法进按任务类型组织的手册，下次做同类任务时读到。
+- **经验有去处**：会话里学到的东西按性质归位——同类任务的做法进手册，你的协作要求进 `AGENTS.md`，项目事实进项目文档；都放在仓内，所有 agent 都读得到。
 
 ## 核心概念
 
@@ -23,10 +23,10 @@
 
 | 命令 | 角色 | 做什么 |
 |---|---|---|
-| `/bs` | 脑暴 | 对一个设计问题提出 3 个以上真正不同的方案，交另一家模型红队，收敛后写成或并入 ADR，冻结前再红队一次。不写代码。 |
+| `/bs` | 脑暴 | 先记下你的意图和原话，对设计问题提出 3 个以上真正不同的方案，和你讨论收敛；需要时请另一家模型红队，意见逐条裁决、经你确认后才改设计；写成或并入 ADR，定稿前由没参与讨论的模型冷读。不写代码。 |
 | `/planner` | 负责人 | 对任务结果负责：读现状，判断不确定性、风险和委派是否划算，然后自己做或写短 brief 派出去，最后核实结果、裁决是否完成。 |
-| `/finishing` | 收尾 | 本轮亲历者写一份会话归档（用户原话、决定与依据、已验证与未验证的结论、未完成项），更新 TODO，列出手册候选，回复交棒和下次开场提示词。 |
-| `/cleaning` | 清理 | 按需运行（攒几轮或文档明显过时时），适合便宜模型：把近期归档的手册候选合入 `patterns/`，在项目可写范围内全仓巡检——文档与代码对齐、死文件与重复、architecture / TODO、ADR 引用、旧 scratch；机械项直接改，删改受版本管理的文件先出候选清单给你确认。 |
+| `/finishing` | 收尾 | 本轮亲历者写一份会话归档（用户原话、决定与依据、已验证与未验证的结论、未完成项），把学到的东西分到各自去处（手册候选默认没有、最多两条），按格式更新 TODO，回复交棒和下次开场提示词。 |
+| `/cleaning` | 清理 | 按需运行（攒几轮或文档明显过时时）：筛选近期归档的手册候选，巡检手册、协作约定和 agent 私有记忆，逐条理解并整理 TODO，在项目可写范围内全仓巡检，清理旧 scratch 和旧归档；机械项直接改，判断项出一份确认清单，你勾选后执行。 |
 | `/holistic` | 整体审 | 项目变复杂或一个大阶段结束时用强模型执行：通读 architecture、全部 ADR 和关键代码，找跨 ADR 的冲突、重叠、接缝问题和多余复杂度，给出合并、删除、简化的整体方案，你确认后执行。 |
 | `/challenge` | 结论质疑 | 实验、基准比较、性能或数值结论，以及「X 比 Y 好」「已验证完成」这类结论，交强模型专门找反证并亲自复现，最多两轮；你逐条结算，汇报分列已支持与未验证的结论。普通编码任务不用。 |
 
@@ -39,12 +39,12 @@
 
 | 位置（安装后） | 放什么 | 是否进 git |
 |---|---|---|
-| `AGENTS.md`（仓根） | 项目工具约定 + 文档路由（什么情况读什么），三种 harness 共用的根指令 | track 模式下进 |
+| `AGENTS.md`（仓根） | 项目工具约定、协作约定、文档路由（什么情况读什么）与手册清单，三种 harness 共用的根指令 | track 模式下进 |
 | `.workflow/kit/discipline.md` | 六条常驻纪律（少即是多、别打补丁叠补丁、别乱加兜底……） | 否（机制副本） |
-| `.workflow/decisions/NNNN-slug.md` | ADR：长期决策，每个主题一份，决定变了原地修改，旧版由 git 历史保存 | track 模式下进 |
+| `.workflow/decisions/NNNN-slug.md` | ADR：当前设计，每个主题一份；设计变了直接改正文，整体变了整篇重写 | track 模式下进 |
 | `.workflow/architecture.md` | 系统现状的全局图；和 ADR 冲突时以 ADR 为准 | track 模式下进 |
-| `.workflow/TODO.md` | 扁平的下一步、未完成项和已知问题，做完即删 | track 模式下进 |
-| `.workflow/patterns/` | 按任务类型的手册：步骤、坑、验证清单 | track 模式下进 |
+| `.workflow/TODO.md` | 下一步、等别人的事和已知问题；每条最多两行，不写进展，做完即删 | track 模式下进 |
+| `.workflow/patterns/` | 按任务类型的手册：步骤、坑、验证清单；清单列在 `AGENTS.md` | track 模式下进 |
 | `.workflow/scratchpad/` | brief、run 产物等临时文件 | 否 |
 | `.workflow/scratchpad/_archive/` | finishing 写的会话归档，本机长期保留，普通清理不删 | 否 |
 
@@ -111,20 +111,22 @@ WF_REVIEW_MODEL_STRONG="codex/gpt-5.6-terra"     # 更强的审查 / 第二审
 /finishing                               # 收尾：写归档、更新 TODO、交棒
 ```
 
-下次会话把交棒里的「下 session 开场提示词」贴进去，继续干活。攒几轮后用便宜模型跑一次 `/cleaning`；项目变复杂时用强模型跑 `/holistic`。
+下次会话把交棒里的「下 session 开场提示词」贴进去，继续干活。攒几轮后跑一次 `/cleaning`；项目变复杂时用强模型跑 `/holistic`。
 
 ---
 
 ## 一轮工作是怎么转的
 
 ```text
-bs         发散方案 → 异构模型红队 → 写或并入 ADR → 再红队 → 用户拍板 accepted
+bs         记下意图 → 发散方案 → 讨论收敛 → （按需）红队 → 裁决表交用户
+           → 写或并入 ADR → 冷读 → 用户拍板 accepted
 planner    读目标和现状 → 分诊 → 自己做 或 写 brief 派单
            → 读结果、核实关键调用链 → 裁决 → 按需返工
 worker     在 brief 目标和边界内实现，回报结果、偏离和矛盾
 reviewer   只读审查实际改动，输出问题清单
-finishing  写归档 → 更新 TODO → 列手册候选 → 交棒
-cleaning   （按需）合入手册 → 全仓巡检 → 直接修机械项、判断项出清单 → 清旧 scratch
+finishing  写归档 → 学到的东西分去处 → 按格式更新 TODO → 交棒
+cleaning   （按需）筛手册候选 → 知识层与 TODO → 全仓巡检 → 清旧 scratch 与归档
+           → 直接修机械项、判断项出确认清单
 holistic   （按需）通读全局 → 找跨 ADR 问题 → 整体方案 → 用户确认后执行
 challenge  （实验类结论）结论清单 → 强模型找反证 → 逐条结算 → 分列已支持与未验证
 ```
@@ -152,7 +154,7 @@ wf run <brief>                      # worker 施工，结果交回 planner 判�
 wf run <brief> --review             # 施工 + 测试 + 独立审查
 wf review <brief> [--model strong]  # 对当前工作树跑测试 + 独立审查；第二审就换模型再跑一次
 wf ask <模型> <提示词文件...> [--out 文件] [--write]
-                                    # 外呼原语，默认只读：红队、方案审、结论质疑都用它
+                                    # 外呼原语，默认只读：红队、冷读、方案审、结论质疑都用它
 wf init [--no-track] [--backends cc,codex,cursor]
 ```
 
@@ -180,7 +182,7 @@ wf init [--no-track] [--backends cc,codex,cursor]
 
 `/finishing` 由本轮的主 agent 直接写归档：`.workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.md`，首行记录后端、会话 UUID、分支与 HEAD。写的人就是做事的人，看过工具输出和中途的失败，不需要事后再从日志提取和压缩。用户的约束、纠正和拍板按原句引用；结论分开写已验证和未验证。
 
-归档是冷存档，平时不读，需要追溯时再看。下次做同类任务会被读到的经验，放在 `patterns/` 手册里。归档在本机长期保留，但被 git 忽略，**不等于备份**。
+归档是冷存档，平时不读，需要追溯时再看。下次做同类任务会被读到的经验，放在 `patterns/` 手册里。旧归档在 `/cleaning` 时列出可删的，由你确认。归档在本机长期保留，但被 git 忽略，**不等于备份**。
 
 ---
 
@@ -194,7 +196,7 @@ your-project/
 │   │   ├── discipline.md
 │   │   ├── skills/{bs,planner,finishing,cleaning,holistic,challenge}/
 │   │   └── workflow.env.example
-│   ├── decisions/0000-template.md   # ADR 模板
+│   ├── decisions/                   # ADR，bs 著作时创建
 │   ├── architecture.md  TODO.md     # 自己建
 │   ├── patterns/                    # 手册，cleaning 合入时创建
 │   ├── workflow.env                 # 本机配置
@@ -240,9 +242,9 @@ ai-workflow/
 │   ├── install.py    # init
 │   ├── kit/          # 机制本体，wf init 整包复制成目标项目的 .workflow/kit/
 │   │   ├── discipline.md
-│   │   ├── skills/   # bs / planner / finishing / cleaning / holistic / challenge（含 brief 模板、worker/审查/质疑者开场白、红队提示词）
+│   │   ├── skills/   # bs / planner / finishing / cleaning / holistic / challenge（含 brief 模板、worker/审查/质疑者开场白、红队与冷读提示词）
 │   │   └── workflow.env.example
-│   └── seed/         # 首次安装时放进目标项目：AGENTS.md、decisions/0000-template.md
+│   └── seed/         # 首次安装时放进目标项目：AGENTS.md
 ├── tests/            # 用假 CLI 替代模型的端到端测试
 └── docs/             # 只给维护者看，不会装进目标项目
     ├── design.md             # 设计蓝图与取舍

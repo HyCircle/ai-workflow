@@ -1,6 +1,6 @@
 [project]
 name = "ai-workflow"
-version = "0.2.0"
+version = "0.3.0"
 description = "半自动多 agent 开发工作流:技能、纪律与 wf 命令"
 requires-python = ">=3.10"
 dependencies = []

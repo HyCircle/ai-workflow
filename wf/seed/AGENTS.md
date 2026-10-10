@@ -1,6 +1,6 @@
 # AGENTS.md — 本项目 agent 指令(常驻)
 
-> 本文件 = 项目工具约定 + 文档路由，CC / Codex / Cursor 共用的根指令入口。只放指向，不放状态与设计内容。
+> 本文件 = 项目工具约定 + 协作约定 + 文档路由，CC / Codex / Cursor 共用的根指令入口。只放指向，不放状态与设计内容。
 > **进项目先读 discipline**(`.workflow/kit/discipline.md`,六条纪律 + 脊椎)。其余文档按下表在任务需要时读，不预读。
 
 ## 项目工具约定
@@ -14,17 +14,27 @@
 
 换型号 / 换厂就改这三个别名的值,不要在 skill 里写死具体型号。
 
+## 协作约定
+
+<用户对所有 agent 都适用的要求，每条一句，如交流语言、提交规范。>
+
 ## 文档路由(skills 正文用简写,以此为准)
+
+项目知识只放在下表各处，所有 agent 都读得到；不写进某个 agent 私有的记忆。
 
 | 简写 | 真路径 | 装什么 | 什么时候读 |
 |---|---|---|---|
 | discipline | `.workflow/kit/discipline.md` | 六条纪律 + 脊椎(kit 维护) | 每次 |
 | architecture | `.workflow/architecture.md` | 系统现状全局图：模块边界、数据模型、关键不变量、已能用的功能 | 跨模块改动、改设计、需要全局判断时 |
-| decisions | `.workflow/decisions/` | ADR：每个主题一份现行长期决定，引用 `ADR-NNNN` | 动到某个决定涉及的边界或契约时，按文件名挑相关的读 |
-| TODO | `.workflow/TODO.md` | 下一步、未完成项、已知问题 | 接续之前的工作、找下一步时 |
-| patterns | `.workflow/patterns/` | 按任务类型的手册：步骤、坑、验证清单 | 当前任务属于某份手册的类型时(看文件名与文件头) |
+| decisions | `.workflow/decisions/` | ADR：每个主题一份当前设计，引用 `ADR-NNNN` | 动到某个决定涉及的边界时，按文件名挑相关的读 |
+| TODO | `.workflow/TODO.md` | 下一步、等别人的事、已知问题。每条最多两行：做什么，卡在哪或为什么，加一个指针；不写进展和历史，状态变了重写这一条 | 接续之前的工作、找下一步时 |
+| patterns | `.workflow/patterns/` | 按任务类型的手册：步骤、坑、验证清单。清单见下节 | 当前任务属于某份手册的类型时 |
 | 会话归档 | `.workflow/scratchpad/_archive/` | finishing 写的历史会话记录(本机保留、忽略) | 用户要求或需要追溯某次会话时 |
 | workflow.env | `.workflow/workflow.env` | 本机命令 / 模型档(忽略) | 跑命令、派单时 |
 | scratchpad | `.workflow/scratchpad/` | 临时产物(忽略) | — |
 
 局部修改直接读相关代码、测试和数据。
+
+## 手册
+
+<每份一行：`patterns/<文件名>.md` — 什么任务该读。cleaning 新建或删除手册时同步这里。>

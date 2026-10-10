@@ -13,9 +13,9 @@ This repository is the **single source** of the workflow. It installs as a comma
 - **Spend expensive-model time on judgment.** The main agent understands the goal, breaks down the problem, and rules on results. Writing code and running experiments can go to cheaper models.
 - **No model grades its own work.** Reviews go by default to a different model family from the one that did the work: for example, Cursor Composer writes and Grok reviews, with an optional second review from GPT.
 - **Context on demand.** The root instructions in `AGENTS.md` are a router that says what to read when; agents don't preload the whole doc set.
-- **Design stays coherent.** ADRs are one per topic and edited in place. When the project grows complex, `/holistic` reviews the whole design and merges or removes what's redundant.
+- **Design stays coherent.** ADRs are one per topic and record the current design as a slow-changing layer that can still be revised. When the project grows complex, `/holistic` reviews the whole design and merges or removes what's redundant.
 - **Claims hold up under challenge.** Experimental claims go through `/challenge`; reviewing the diff doesn't replace it.
-- **Lessons have a home.** Pitfalls and practices learned in a session go into task-type playbooks that are read the next time you do the same kind of task.
+- **Lessons have a home.** What a session learns is sorted by kind: practices for recurring tasks go into playbooks, your collaboration requirements into `AGENTS.md`, project facts into project docs. All of it lives in the repo, where every agent can read it.
 
 ## Core concepts
 
@@ -23,10 +23,10 @@ This repository is the **single source** of the workflow. It installs as a comma
 
 | Command | Role | What it does |
 |---|---|---|
-| `/bs` | Brainstorm | Takes a design question and produces at least 3 genuinely different options. A model from another family red-teams them. The chosen option is written up as a new ADR or merged into an existing one, which gets red-teamed again before it's frozen. No code. |
+| `/bs` | Brainstorm | First records your intent and your own words, then takes the design question to at least 3 genuinely different options and converges with you. When it's worth it, a model from another family red-teams the work; each point is ruled on and the design changes only after you confirm the rulings. The result is written up as a new ADR or merged into an existing one, and a model that wasn't in the discussion cold-reads it before it's frozen. No code. |
 | `/planner` | Owner | Owns the outcome of the task. Reads the current state and weighs uncertainty, risk, and whether delegating pays off. Then either does the work itself or writes a short brief and dispatches it. Finally it verifies the result and decides whether the task is done. |
-| `/finishing` | Wrap-up | The agent that did the work writes a session archive (the user's own words, decisions and reasons, verified vs. unverified conclusions, open items), updates TODO, lists playbook candidates, and replies with a handoff and an opening prompt for the next session. |
-| `/cleaning` | Cleanup | Run on demand (every few sessions, or when docs look stale), on a cheap model. Merges playbook candidates from recent archives into `patterns/`, then sweeps everything inside the project's writable scope: docs vs. code, dead files and duplication, architecture/TODO, ADR references, old scratch. Mechanical fixes are applied directly; deleting or rewriting tracked files goes through a candidate list you confirm. |
+| `/finishing` | Wrap-up | The agent that did the work writes a session archive (the user's own words, decisions and reasons, verified vs. unverified conclusions, open items), sorts what was learned to where it belongs (playbook candidates: none by default, at most two), rewrites the relevant TODO items in the standard format, and replies with a handoff and an opening prompt for the next session. |
+| `/cleaning` | Cleanup | Run on demand (every few sessions, or when docs look stale). Screens playbook candidates from recent archives; reviews playbooks, collaboration conventions, and agent-private memory; reads and tidies TODO item by item; sweeps everything inside the project's writable scope; prunes old scratch and old archives. Mechanical fixes are applied directly; judgment calls go into one confirmation list you tick off. |
 | `/holistic` | Overall review | Run on a strong model when the project grows complex or a major phase ends. Reads architecture, every ADR, and the key code; finds cross-ADR conflicts, overlap, seam bugs, and needless complexity; proposes an overall plan to merge, delete, and simplify, then executes what you confirm. |
 | `/challenge` | Claim challenge | For experiments, benchmarks, performance or numerical results, and claims like "X beats Y" or "verified done": a strong model looks only for counter-evidence and reproduces it itself, for at most two rounds; you settle each objection, and the report separates supported from unverified claims. Not for ordinary coding tasks. |
 
@@ -39,12 +39,12 @@ Two more roles are called by `wf`. You don't talk to them directly:
 
 | Location (after install) | Contents | Committed? |
 |---|---|---|
-| `AGENTS.md` (repo root) | Project tool conventions and the doc router (what to read when). The root instructions shared by all three harnesses. | Yes, in track mode |
+| `AGENTS.md` (repo root) | Project tool conventions, collaboration conventions, the doc router (what to read when), and the playbook list. The root instructions shared by all three harnesses. | Yes, in track mode |
 | `.workflow/kit/discipline.md` | Six standing rules (less is more, no patch-on-patch, no reflexive fallbacks, …) | No (copy of the kit) |
-| `.workflow/decisions/NNNN-slug.md` | ADRs: long-lived decisions, one per topic. When a decision changes, edit it in place; git history keeps old versions. | Yes, in track mode |
+| `.workflow/decisions/NNNN-slug.md` | ADRs: the current design, one per topic. When the design changes, edit the text; when it changes wholesale, rewrite the ADR. | Yes, in track mode |
 | `.workflow/architecture.md` | Global map of the current system. When it conflicts with an ADR, the ADR wins. | Yes, in track mode |
-| `.workflow/TODO.md` | Flat list of next steps, open items, and known issues. Items are deleted when done. | Yes, in track mode |
-| `.workflow/patterns/` | Playbooks per task type: steps, pitfalls, verification checklist | Yes, in track mode |
+| `.workflow/TODO.md` | Next steps, things waiting on others, and known issues. At most two lines per item, no progress notes; deleted when done. | Yes, in track mode |
+| `.workflow/patterns/` | Playbooks per task type: steps, pitfalls, verification checklist; listed in `AGENTS.md` | Yes, in track mode |
 | `.workflow/scratchpad/` | Briefs, run outputs, and other temporary files | No |
 | `.workflow/scratchpad/_archive/` | Session archives written by finishing, kept long-term on this machine and skipped by routine cleanup | No |
 
@@ -111,20 +111,22 @@ WF_REVIEW_MODEL_STRONG="codex/gpt-5.6-terra"     # stronger reviewer / second re
 /finishing                                   # wrap-up: archive, update TODO, hand off
 ```
 
-In the next session, paste the "opening prompt for the next session" from the handoff and carry on. Every few sessions, run `/cleaning` on a cheap model; when the project grows complex, run `/holistic` on a strong one.
+In the next session, paste the "opening prompt for the next session" from the handoff and carry on. Every few sessions, run `/cleaning`; when the project grows complex, run `/holistic` on a strong one.
 
 ---
 
 ## How a cycle works
 
 ```text
-bs         explore options → cross-family red team → write or merge ADR → red team again → user accepts
+bs         record intent → explore options → converge → (optional) red team → rulings to user
+           → write or merge ADR → cold read → user accepts
 planner    read goal and current state → triage → do it yourself OR write a brief and dispatch
            → read results, verify the key call paths → rule → rework if needed
 worker     implement within the brief's goal and boundaries; report results, deviations, contradictions
 reviewer   read-only review of the actual changes; list of problems
-finishing  write archive → update TODO → list playbook candidates → hand off
-cleaning   (on demand) merge playbooks → repo-wide sweep → fix mechanical items, list judgment calls → prune scratch
+finishing  write archive → sort what was learned → rewrite TODO items → hand off
+cleaning   (on demand) screen playbook candidates → knowledge layer and TODO → repo-wide sweep
+           → prune scratch and archives → fix mechanical items, list judgment calls
 holistic   (on demand) read the whole design → find cross-ADR problems → overall plan → execute after user confirms
 challenge  (experimental claims) claim list → strong model seeks counter-evidence → settle each → separate supported from unverified
 ```
@@ -152,7 +154,7 @@ wf run <brief>                      # the worker implements; results go back to 
 wf run <brief> --review             # implement + tests + independent review
 wf review <brief> [--model strong]  # tests + independent review of the current tree; rerun with another model for a second review
 wf ask <model> <prompt-files...> [--out FILE] [--write]
-                                    # the call primitive, read-only by default: red teams, plan reviews, and claim challenges use it
+                                    # the call primitive, read-only by default: red teams, cold reads, plan reviews, and claim challenges use it
 wf init [--no-track] [--backends cc,codex,cursor]
 ```
 
@@ -180,7 +182,7 @@ Exit codes: 0 means every call finished normally (not that the work passed); 2 m
 
 `/finishing` has the main agent of the session write the archive itself: `.workflow/scratchpad/_archive/NN-YYYYMMDD-<slug>.md`, whose first line records the backend, session UUID, branch, and HEAD. The writer is the agent that did the work and saw the tool output and the failed attempts, so nothing has to be extracted and compacted afterwards. The user's constraints, corrections, and decisions are quoted verbatim; verified and unverified conclusions are listed separately.
 
-Archives are cold storage: not read by default, only when you need to trace something back. Experience that should be picked up next time you do the same kind of task belongs in the `patterns/` playbooks. Archives are kept long-term on your machine, but git ignores them. **They are not a backup.**
+Archives are cold storage: not read by default, only when you need to trace something back. Experience that should be picked up next time you do the same kind of task belongs in the `patterns/` playbooks. `/cleaning` lists old archives that can go, for you to confirm. Archives are kept long-term on your machine, but git ignores them. **They are not a backup.**
 
 ---
 
@@ -194,7 +196,7 @@ your-project/
 │   │   ├── discipline.md
 │   │   ├── skills/{bs,planner,finishing,cleaning,holistic,challenge}/
 │   │   └── workflow.env.example
-│   ├── decisions/0000-template.md   # ADR template
+│   ├── decisions/                   # ADRs, created when bs writes the first one
 │   ├── architecture.md  TODO.md     # you create these
 │   ├── patterns/                    # playbooks, created when cleaning merges the first one
 │   ├── workflow.env                 # local config
@@ -240,9 +242,9 @@ ai-workflow/
 │   ├── install.py    # init
 │   ├── kit/          # the workflow itself; wf init copies it into the project's .workflow/kit/
 │   │   ├── discipline.md
-│   │   ├── skills/   # bs / planner / finishing / cleaning / holistic / challenge (with brief template, worker/review/challenger preambles, red-team prompts)
+│   │   ├── skills/   # bs / planner / finishing / cleaning / holistic / challenge (with brief template, worker/review/challenger preambles, red-team and cold-read prompts)
 │   │   └── workflow.env.example
-│   └── seed/         # placed in the project on first install: AGENTS.md, decisions/0000-template.md
+│   └── seed/         # placed in the project on first install: AGENTS.md
 ├── tests/            # end-to-end tests with fake CLIs in place of models
 └── docs/             # for maintainers only; not installed into projects
     ├── design.md             # design blueprint and trade-offs

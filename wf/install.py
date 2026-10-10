@@ -49,7 +49,6 @@ def init(root: Path, track: bool, backends: list[str]) -> int:
     print(f"✓ 机制副本 → {wf / 'kit'}")
 
     for src, dst in [(KIT / "workflow.env.example", wf / "workflow.env"),
-                     (SEED / "decisions/0000-template.md", wf / "decisions/0000-template.md"),
                      (SEED / "AGENTS.md", root / "AGENTS.md")]:
         if not dst.exists():
             dst.parent.mkdir(exist_ok=True)
